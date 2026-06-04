@@ -1,0 +1,91 @@
+---
+import { Image } from "astro:assets";
+
+import studio from "@/assets/studio/image-1.jpg";
+---
+
+<figure class="gallery">
+  <Image
+    class="gallery__image"
+    src={studio}
+    alt="Studio Uto — leerer Studioraum mit raumhohen Fenstern und Betonboden."
+    widths={[640, 960, 1280]}
+    sizes="(max-width: 900px) 92vw, 65vw"
+    loading="eager"
+  />
+
+  <figcaption class="gallery__caption">
+    <a class="gallery__tour chip" href="#">Take a tour</a>
+  </figcaption>
+
+  <span class="gallery__reframe" aria-hidden="true">
+    <svg viewBox="0 0 44 20" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M2 2 L2 12 M2 2 L12 2" />
+      <path d="M42 2 L42 12 M42 2 L32 2" />
+    </svg>
+  </span>
+</figure>
+
+<style>
+  .gallery {
+    position: relative;
+    width: min(92vw, 65vw);
+    max-width: 1000px;
+    margin: clamp(28px, 6vh, 72px) auto 0;
+  }
+
+  .gallery__image {
+    width: 100%;
+    height: clamp(320px, 52vh, 600px);
+    object-fit: cover;
+  }
+
+  /* "Take a tour" pill, centred over the image. */
+  .gallery__caption {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    margin: 0;
+    pointer-events: none;
+  }
+
+  .gallery__tour {
+    pointer-events: auto;
+    justify-content: center;
+    min-width: 0;
+    background: rgba(78, 80, 82, 0.72);
+    color: #fff;
+    font-size: 0.9375rem;
+    letter-spacing: 0.005em;
+    padding: 7px 16px;
+    backdrop-filter: blur(1px);
+  }
+
+  .gallery__tour:hover {
+    background: rgba(60, 62, 64, 0.82);
+  }
+
+  /* Corner reframe marks near the bottom centre. */
+  .gallery__reframe {
+    position: absolute;
+    left: 50%;
+    bottom: clamp(16px, 4%, 32px);
+    translate: -50% 0;
+    width: 44px;
+    color: rgba(255, 255, 255, 0.92);
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+  }
+
+  .gallery__reframe svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  @media (max-width: 900px) {
+    .gallery {
+      width: 92vw;
+    }
+  }
+</style>

@@ -1,0 +1,151 @@
+---
+// Giant UTO wordmark. The variable font only carries the U/T/O glyphs.
+// Height stays fixed (font-size); the wordmark is fitted edge-to-edge by driving
+// the variable WIDTH axis as the window scales — see the fit script below.
+const { class: className } = Astro.props;
+---
+
+<h1 class:list={["logo", className]} aria-label="Studio Uto">
+  <span aria-hidden="true">U</span><span aria-hidden="true">T</span><span
+    aria-hidden="true">O</span>
+</h1>
+
+<script>
+  // Fit the wordmark edge-to-edge at a FIXED height.
+  // Primary mechanism = the font's own width axis (wdth, 0–100). When the
+  // window is wider than the widest the axis allows, we top out at wdth 100 and
+  // make up the small remainder with a horizontal scale, so it stays edge-to-edge.
+  const GAP = 4; // px gap between letters
+
+  const logo = document.querySelector<HTMLElement>(".logo");
+  const home = logo?.closest<HTMLElement>(".home") ?? logo?.parentElement ?? null;
+
+  if (logo && home) {
+    // Contrast (CONT axis, 0–100) follows the cursor: sweep the pointer across
+    // the window and the thick/thin stroke contrast scrubs from even (left) to
+    // dramatic (right). It is decoupled from the edge-to-edge fit below — fit()
+    // owns the width axis + size, the pointer only re-stamps the CONT value onto
+    // the last-fitted width, so there is no per-frame relayout.
+    let cont = 50; // sensible mid default until the pointer moves
+    let fittedWdth = 100; // last width-axis value chosen by fit()
+    const vars = (wdth: number) => `"wght" 100, "wdth" ${wdth}, "CONT" ${cont}`;
+
+    // Width of the three glyphs (no gap, no transform) at a given wdth axis value.
+    const tripleWidth = (wdth: number) => {
+      logo.style.transform = "none";
+      logo.style.columnGap = "0px";
+      logo.style.fontVariationSettings = vars(wdth);
+      return logo.offsetWidth;
+    };
+
+    const fit = () => {
+      const cs = getComputedStyle(home);
+      const avail =
+        home.clientWidth -
+        parseFloat(cs.paddingLeft) -
+        parseFloat(cs.paddingRight);
+      const target = avail - 2 * GAP; // width the three glyphs should occupy
+
+      const wMin = tripleWidth(0);
+      const wMax = tripleWidth(100);
+
+      let wdth = 100;
+      let scale = 1;
+
+      if (target <= wMin) {
+        // Narrower than the font's narrowest — squeeze the rest with scaleX.
+        wdth = 0;
+        scale = target / wMin;
+      } else if (target >= wMax) {
+        // Wider than the axis can reach — max the axis, stretch the remainder.
+        wdth = 100;
+        scale = target / wMax;
+      } else {
+        // The width axis alone can hit it — binary-search the value (no distortion).
+        let lo = 0;
+        let hi = 100;
+        for (let i = 0; i < 16; i++) {
+          const mid = (lo + hi) / 2;
+          if (tripleWidth(mid) < target) lo = mid;
+          else hi = mid;
+        }
+        wdth = (lo + hi) / 2;
+        scale = 1;
+      }
+
+      const gap = GAP / scale; // pre-scale gap so the visual gap stays GAP px
+      fittedWdth = wdth; // remember it so the pointer can re-stamp contrast
+      logo.style.fontVariationSettings = vars(wdth);
+      logo.style.columnGap = `${gap}px`;
+      logo.style.transform = scale === 1 ? "none" : `scaleX(${scale})`;
+      logo.dataset.fit = "1";
+    };
+
+    let raf = 0;
+    const schedule = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(fit);
+    };
+
+    if (document.fonts?.ready) document.fonts.ready.then(fit);
+    else fit();
+    new ResizeObserver(schedule).observe(home);
+    window.addEventListener("resize", schedule);
+
+    // Cursor → contrast. Horizontal pointer position across the window maps to
+    // the CONT axis (left = even strokes, right = high contrast). rAF-throttled,
+    // and only the contrast is re-stamped onto the already-fitted width.
+    let pointerX = window.innerWidth / 2;
+    let contRaf = 0;
+    const applyContrast = () => {
+      contRaf = 0;
+      const t = Math.min(1, Math.max(0, pointerX / window.innerWidth));
+      const next = Math.round(t * 100);
+      if (next === cont) return;
+      cont = next;
+      logo.style.fontVariationSettings = vars(fittedWdth);
+    };
+    window.addEventListener(
+      "pointermove",
+      (e) => {
+        if (e.pointerType === "touch") return; // keep touch devices steady
+        pointerX = e.clientX;
+        if (!contRaf) contRaf = requestAnimationFrame(applyContrast);
+      },
+      { passive: true },
+    );
+  }
+</script>
+
+<style>
+  .logo {
+    display: flex;
+    width: max-content;
+    align-items: flex-start;
+    column-gap: 4px;
+    margin: 0;
+    padding: 0;
+    color: var(--color-ink);
+    font-family: var(--font-logo);
+    /*
+     * Height is driven by viewport HEIGHT in landscape, so it stays put when
+     * only the window WIDTH changes (the width is filled by the fit script via
+     * the variable width axis + scale). On portrait/narrow screens the width
+     * term takes over so the wordmark never gets too tall.
+     */
+    font-size: clamp(40px, min(19vh, 17vw), 150px);
+    font-weight: 900;
+    font-variation-settings:
+      "wght" 100,
+      "wdth" 100,
+      "CONT" 0;
+    line-height: 0.8;
+    letter-spacing: 0;
+    transform-origin: left center;
+    user-select: none;
+  }
+
+  .logo span {
+    display: block;
+  }
+</style>

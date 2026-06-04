@@ -1,0 +1,26 @@
+---
+import GalleryFrame from "@/components/home/GalleryFrame.astro";
+import Logo from "@/components/home/Logo.astro";
+import SideNav from "@/components/home/SideNav.astro";
+import SiteHeader from "@/components/home/SiteHeader.astro";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { site } from "@/lib/site";
+---
+
+<BaseLayout title={site.name} description={site.description}>
+  <main id="content" class="home">
+    <Logo />
+    <SiteHeader />
+    <GalleryFrame />
+  </main>
+  <SideNav />
+</BaseLayout>
+
+<style>
+  .home {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    padding: clamp(6px, 1vh, 12px) var(--page-pad) calc(var(--page-pad) + 44px);
+  }
+</style>

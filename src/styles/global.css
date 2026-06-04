@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+/* UTO wordmark — logo glyphs only (U/T/O). Three variable axes: wght, wdth, CONT (0–100). */
+@font-face {
+  font-family: "UTO Variable";
+  src: url("/fonts/UTOVariableVF.ttf") format("truetype-variations");
+  font-weight: 1 1000;
+  font-display: block;
+}
+
+@theme {
+  --font-sans:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-logo: "UTO Variable", var(--font-sans);
+
+  --color-ink: #0a0a0a;
+  --color-paper: #ffffff;
+  --color-muted: #6b6b68;
+  /* Nav/meta/social blocks: solid black fields with white labels. */
+  --color-chip: #111111;
+  --color-chip-hover: #2a2a2a;
+  --color-chip-label: #ffffff;
+  /* Active/selected field reads as a lighter neutral grey with dark label. */
+  --color-chip-active: #8c8c89;
+  --color-chip-active-hover: #97977f;
+  --color-line: #e4e4e0;
+  --color-focus: #244f74;
+
+  /* Outer breathing room. The logo bleeds nearly to the edges. */
+  --page-pad: clamp(7px, 0.8vw, 11px);
+}
+
+:root {
+  color: var(--color-ink);
+  background: var(--color-paper);
+  font-family: var(--font-sans);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100dvh;
+  margin: 0;
+  background: var(--color-paper);
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+.skip-link {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 50;
+  translate: 0 -150%;
+  border: 1px solid var(--color-line);
+  border-radius: 6px;
+  background: var(--color-paper);
+  padding: 10px 14px;
+  font-weight: 700;
+}
+
+.skip-link:focus {
+  translate: 0;
+}
+
+/* Shared chip — the solid black label/field used across header, socials, and
+   side-nav. The label sits left with trailing space so each reads like an
+   input field, matching the identity. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 21px;
+  min-width: 5.25em;
+  padding: 3px 11px;
+  background: var(--color-chip);
+  color: var(--color-chip-label);
+  font-size: 0.8125rem;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  transition: background-color 120ms ease;
+}
+
+a.chip:hover {
+  background: var(--color-chip-hover);
+}
+
+/* Selected field: light neutral grey, dark label (e.g. current page). */
+.chip--active {
+  min-width: 6.5em;
+  background: var(--color-chip-active);
+  color: var(--color-ink);
+}
+
+a.chip--active:hover {
+  background: var(--color-chip-active-hover);
+}
