@@ -1,6 +1,6 @@
 # Atelier Uto
 
-Static editorial studio website built with Astro, React, MDX, Tailwind CSS, and TypeScript.
+Static editorial studio website built with Astro, React, MDX, and TypeScript. Styling is plain hand-written CSS (design tokens in `src/styles/global.css`, scoped `<style>` blocks per component) — no CSS framework.
 
 ## Commands
 
