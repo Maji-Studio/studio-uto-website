@@ -1,5 +1,16 @@
 ---
+import { isRouteActive } from "@/lib/routes";
 import { primaryNav, site, socials } from "@/lib/site";
+
+const path = Astro.url.pathname;
+
+// A nav item is active when its real route matches the current path. Items still
+// pointing at placeholder targets ("#") never match — except Studio, which stands
+// in for the homepage until its destination lands.
+function isNavActive(href: string, index: number) {
+  if (href.startsWith("/")) return isRouteActive(path, href);
+  return path === "/" && index === 0;
+}
 
 // Build-time German date; refreshed client-side so it always shows "today".
 function formatGermanDate(date: Date): string {
@@ -28,7 +39,11 @@ const today = formatGermanDate(new Date());
   <nav class="site-header__group site-header__nav" aria-label="Hauptnavigation">
     {
       primaryNav.map((item, i) => (
-        <a class:list={["chip", { "chip--active": i === 0 }]} href={item.href}>
+        <a
+          class:list={["chip", { "chip--active": isNavActive(item.href, i) }]}
+          href={item.href}
+          aria-current={isNavActive(item.href, i) ? "page" : undefined}
+        >
           {item.label}
         </a>
       ))

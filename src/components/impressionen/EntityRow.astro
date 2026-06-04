@@ -1,0 +1,101 @@
+---
+import { Image } from "astro:assets";
+
+import type { Impression } from "@/lib/impressionen";
+
+interface Props {
+  entity: Impression;
+}
+
+const { entity } = Astro.props;
+
+// Used when an image carries no explicit alt text.
+const fallbackAlt = `Arbeit von ${entity.name}${
+  entity.client ? ` für ${entity.client}` : ""
+}.`;
+---
+
+<article class="entity">
+  <header class="entity__meta">
+    <h2 class="entity__name">{entity.name}</h2>
+    {entity.client && <p class="entity__client">for {entity.client}</p>}
+  </header>
+
+  <ul class="entity__grid" role="list">
+    {
+      entity.images.map((image) => (
+        <li class="entity__cell">
+          <Image
+            class="entity__image"
+            src={image.src}
+            alt={image.alt ?? fallbackAlt}
+            widths={[240, 360, 480]}
+            sizes="(max-width: 720px) 30vw, 18vw"
+            loading="lazy"
+          />
+        </li>
+      ))
+    }
+  </ul>
+</article>
+
+<style>
+  /*
+   * Two equal halves: collaborator meta on the left, image grid on the right.
+   * Exact 1fr/1fr (no column gap) means the meta column is precisely 50% wide,
+   * so its top hairline runs the full left half and meets the grid's left edge.
+   * The text/grid gutter is the meta's right padding — the rule still spans the
+   * whole 50% column, including that padding.
+   */
+  .entity {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+
+  .entity__meta {
+    border-top: 1px solid var(--color-ink);
+    padding-top: 10px;
+    padding-right: clamp(16px, 4vw, 56px);
+  }
+
+  .entity__name,
+  .entity__client {
+    margin: 0;
+    font-size: clamp(1.05rem, 1.6vw, 1.4rem);
+    font-weight: 400;
+    line-height: 1.18;
+    letter-spacing: 0.005em;
+  }
+
+  .entity__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: clamp(6px, 0.7vw, 10px);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .entity__cell {
+    margin: 0;
+  }
+
+  .entity__image {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 3 / 2;
+    object-fit: cover;
+  }
+
+  @media (max-width: 720px) {
+    .entity {
+      grid-template-columns: 1fr;
+      row-gap: 12px;
+    }
+
+    .entity__meta {
+      padding-right: 0;
+    }
+  }
+</style>

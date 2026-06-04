@@ -1,0 +1,43 @@
+---
+import { site } from "@/lib/site";
+
+// Build-time "last updated" stamp (content/build time, not the viewer's clock —
+// so unlike the header date it is intentionally NOT refreshed client-side).
+const now = new Date();
+const weekday = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(
+  now,
+);
+const month = new Intl.DateTimeFormat("en-US", { month: "long" }).format(now);
+const updated = `${weekday} ${month} ${now.getDate()} ${now.getFullYear()}`;
+const year = now.getFullYear();
+---
+
+<footer class="site-footer">
+  <p class="site-footer__updated">Last updated at {updated}</p>
+  <p class="site-footer__copy">
+    © {year}, {site.name.toUpperCase()} All Rights Reserved
+  </p>
+</footer>
+
+<style>
+  .site-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: clamp(28px, 6vh, 64px);
+    font-size: 0.75rem;
+    letter-spacing: 0.01em;
+    color: var(--color-ink);
+  }
+
+  .site-footer p {
+    margin: 0;
+  }
+
+  @media (max-width: 560px) {
+    .site-footer {
+      flex-direction: column;
+      gap: 4px;
+    }
+  }
+</style>

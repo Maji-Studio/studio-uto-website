@@ -1,0 +1,90 @@
+---
+import EntityRow from "@/components/impressionen/EntityRow.astro";
+import Logo from "@/components/home/Logo.astro";
+import SiteHeader from "@/components/home/SiteHeader.astro";
+import SiteFooter from "@/components/site/SiteFooter.astro";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { impressionen } from "@/lib/impressionen";
+import { contact } from "@/lib/site";
+
+const description =
+  "Impressionen — eine Auswahl von Arbeiten und Kollaborationen, die im Studio Uto entstanden sind.";
+---
+
+<BaseLayout title="Impressionen" description={description}>
+  <main id="content" class="impressionen">
+    {/* Wordmark cropped against the top edge — its own width-fit script runs. */}
+    <div class="impressionen__crown">
+      <Logo />
+    </div>
+
+    <SiteHeader />
+
+    <section class="impressionen__entities" aria-label="Impressionen">
+      {impressionen.map((entity) => <EntityRow entity={entity} />)}
+    </section>
+
+    <section class="collab">
+      <p class="collab__text">
+        STUDIO UTO collaborates with a network of creative professionals
+        including producers, DOPs, editors, graphic designers, typedesigners,
+        strategists, signage specialist, moderators and more.
+      </p>
+      <p class="collab__email">
+        <a href={`mailto:${contact.email}`}>{contact.email}</a>
+      </p>
+    </section>
+
+    <SiteFooter />
+  </main>
+</BaseLayout>
+
+<style>
+  .impressionen {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    padding: clamp(6px, 1vh, 12px) var(--page-pad) var(--page-pad);
+  }
+
+  /*
+   * The giant UTO is taller than this band, bottom-aligned and clipped — so it
+   * bleeds off the top edge as in the reference. No own horizontal padding, so
+   * the wordmark's fit script measures the full content width.
+   */
+  .impressionen__crown {
+    display: flex;
+    align-items: flex-end;
+    overflow: hidden;
+    height: clamp(44px, 8vh, 92px);
+  }
+
+  .impressionen__entities {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(40px, 8vh, 96px);
+    margin-top: clamp(28px, 6vh, 64px);
+  }
+
+  /* Closing statement + contact, set large like a manifesto. */
+  .collab {
+    margin-top: clamp(48px, 10vh, 120px);
+  }
+
+  .collab__text,
+  .collab__email {
+    margin: 0;
+    font-size: clamp(1.5rem, 3.4vw, 2.4rem);
+    font-weight: 400;
+    line-height: 1.16;
+    letter-spacing: -0.01em;
+  }
+
+  .collab__email {
+    margin-top: 1.1em;
+  }
+
+  .collab__email a:hover {
+    text-decoration: underline;
+  }
+</style>

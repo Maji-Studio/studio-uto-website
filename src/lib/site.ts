@@ -4,6 +4,11 @@ export const site = {
     "Studio Uto — Fotostudio zur Miete an der Flüelastrasse 16, 8048 Zürich.",
 };
 
+/** Single source of truth for contact details (header social + page copy). */
+export const contact = {
+  email: "info@atelier-uto.ch",
+};
+
 export interface NavItem {
   label: string;
   href: string;
@@ -12,7 +17,7 @@ export interface NavItem {
 /** Primary navigation (header centre). Destinations land in later phases. */
 export const primaryNav: NavItem[] = [
   { label: "Studio", href: "#" },
-  { label: "Impressionen", href: "#" },
+  { label: "Impressionen", href: "/impressionen/" },
   { label: "Information", href: "#" },
   { label: "Equipment", href: "#" },
   { label: "Buchen", href: "#" },
@@ -29,5 +34,5 @@ export const sectionNav: NavItem[] = [
 /** Social / contact links (header right). Real targets land in a later phase. */
 export const socials: NavItem[] = [
   { label: "Instagram", href: "#" },
-  { label: "Email", href: "#" },
+  { label: "Email", href: `mailto:${contact.email}` },
 ];
