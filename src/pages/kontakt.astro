@@ -1,0 +1,165 @@
+---
+import ContactForm from "@/components/contact/ContactForm.astro";
+import Logo from "@/components/home/Logo.astro";
+import SiteHeader from "@/components/home/SiteHeader.astro";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { address, beteiligte } from "@/lib/site";
+
+const description =
+  "Kontakt & Buchung — Studio Uto, Fotostudio zur Miete an der Flüelastrasse 16, 8048 Zürich.";
+---
+
+<BaseLayout title="Kontakt" description={description}>
+  <main id="content" class="kontakt">
+    {/* Full wordmark — identical treatment to the homepage. */}
+    <Logo />
+
+    <SiteHeader />
+
+    <div class="kontakt__body">
+      {
+        /* Left column sinks to the baseline of the screen, like the reference. */
+      }
+      <section class="people" aria-labelledby="people-heading">
+        <h2 id="people-heading" class="people__heading">
+          Studio Uto Beteiligte
+        </h2>
+        <ul class="people__list" role="list">
+          {beteiligte.map((person) => <li class="people__name">{person}</li>)}
+        </ul>
+      </section>
+
+      {/* Right column: the booking form, then the studio address. */}
+      <div class="kontakt__contact">
+        <h2 class="visually-hidden">Anfrage senden</h2>
+        <ContactForm />
+
+        <address class="kontakt__address">
+          <span>{address.name}</span>
+          <span>{address.street}</span>
+          <span>{address.city}</span>
+        </address>
+      </div>
+    </div>
+  </main>
+</BaseLayout>
+
+{
+  /*
+   * The Kontakt page rides the identity's mid-grey ground (not the paper-white of
+   * the gallery pages). Scoped to this page: the homepage still wants white behind
+   * its gallery. Set on <body> so overscroll and the logo's open counters show the
+   * same grey, not a sliver of white.
+   */
+}
+<style is:global>
+  body:has(.kontakt) {
+    --color-paper: #a9a9a6;
+    background: #a9a9a6;
+  }
+</style>
+
+<style>
+  .kontakt {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    padding: clamp(6px, 1vh, 12px) var(--page-pad) var(--page-pad);
+  }
+
+  /*
+   * Two equal columns. The row grows to fill the screen so the left column can
+   * push its content to the bottom edge (align-items: stretch + justify-content
+   * on the child), while the form column stays anchored at the top.
+   */
+  .kontakt__body {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: clamp(28px, 5vw, 72px);
+    align-items: stretch;
+    margin-top: clamp(28px, 5vh, 56px);
+  }
+
+  /* Beteiligte — large grotesque, tightly leaded, sitting at the baseline. */
+  .people {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+
+  .people__heading,
+  .people__name {
+    margin: 0;
+    font-size: clamp(1.5rem, 3.2vw, 2.35rem);
+    font-weight: 400;
+    line-height: 1.04;
+    letter-spacing: -0.015em;
+  }
+
+  /* Heading sits at full ink; the names a shade lighter, as in the reference. */
+  .people__heading {
+    color: var(--color-ink);
+  }
+
+  .people__name {
+    color: #2c2c2a;
+  }
+
+  .people__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .kontakt__contact {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  /* Studio address — set at the form's field scale, tight three-line stack. */
+  .kontakt__address {
+    margin-top: clamp(18px, 3vh, 30px);
+    font-style: normal;
+    font-size: clamp(1.35rem, 2.4vw, 1.8rem);
+    line-height: 1.12;
+    letter-spacing: -0.01em;
+  }
+
+  .kontakt__address span {
+    display: block;
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* Stack on narrow screens — the form leads (it's the point of the page),
+     the Beteiligte list follows. */
+  @media (max-width: 720px) {
+    .kontakt__body {
+      grid-template-columns: 1fr;
+      row-gap: clamp(40px, 8vh, 72px);
+      margin-top: clamp(24px, 4vh, 40px);
+    }
+
+    .kontakt__contact {
+      order: -1;
+    }
+
+    .people {
+      justify-content: flex-start;
+    }
+  }
+</style>

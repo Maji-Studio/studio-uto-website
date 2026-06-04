@@ -43,8 +43,8 @@ const fallbackAlt = `Arbeit von ${entity.name}${
   /*
    * Two equal halves with an 8px gutter: collaborator meta (with its top
    * hairline) on the left, image grid on the right. The hairline runs the full
-   * left column and the 8px column gap separates it from the gallery — same gap
-   * used between the images themselves.
+   * left column and the 8px column gap separates it from the gallery. The images
+   * themselves sit flush, with no gap between them.
    */
   .entity {
     --impression-gap: 8px;
@@ -71,7 +71,7 @@ const fallbackAlt = `Arbeit von ${entity.name}${
   .entity__grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: var(--impression-gap);
+    gap: 0;
     margin: 0;
     padding: 0;
     list-style: none;

@@ -1,0 +1,325 @@
+---
+import { contact } from "@/lib/site";
+
+/*
+ * The booking/contact form. Each field is a transparent input riding a hairline
+ * with a floating label — at rest the label sits on the line (matching the
+ * identity's "everything is a form field" language); on focus or once filled it
+ * shrinks and rises out of the way. Pure CSS via :placeholder-shown, so it works
+ * without JS.
+ *
+ * Submission is progressive: the <form> posts to a mailto: action as a no-JS
+ * fallback, and the script below enhances that into a composed mail draft
+ * (subject + labelled body) opened in the visitor's mail client. No backend is
+ * wired yet — swap the action/handler for a real endpoint (Formspree, a Worker,
+ * etc.) when one exists; the field `name`s already carry the payload.
+ */
+const fields = [
+  {
+    name: "name",
+    label: "Name",
+    type: "text",
+    required: true,
+    autocomplete: "name",
+  },
+  {
+    name: "firma",
+    label: "Firma",
+    type: "text",
+    required: false,
+    autocomplete: "organization",
+  },
+  {
+    name: "adresse",
+    label: "Adresse",
+    type: "text",
+    required: false,
+    autocomplete: "street-address",
+  },
+  {
+    name: "email",
+    label: "Email",
+    type: "email",
+    required: true,
+    autocomplete: "email",
+  },
+  {
+    name: "telefon",
+    label: "Telefon",
+    type: "tel",
+    required: false,
+    autocomplete: "tel",
+  },
+] as const;
+---
+
+<form
+  class="cform"
+  data-email={contact.email}
+  action={`mailto:${contact.email}`}
+  method="post"
+  enctype="text/plain"
+  novalidate
+>
+  {
+    fields.map((field) => (
+      <p class="field">
+        <input
+          class="field__input"
+          id={`f-${field.name}`}
+          name={field.name}
+          type={field.type}
+          placeholder=" "
+          required={field.required}
+          aria-required={field.required ? "true" : undefined}
+          autocomplete={field.autocomplete}
+        />
+        <label class="field__label" for={`f-${field.name}`}>
+          {field.label}
+          {field.required && (
+            <span class="field__req" aria-hidden="true">
+              *
+            </span>
+          )}
+        </label>
+      </p>
+    ))
+  }
+
+  <p class="field field--area">
+    <textarea
+      class="field__input field__textarea"
+      id="f-nachricht"
+      name="nachricht"
+      rows="3"
+      placeholder=" "
+      required
+      aria-required="true"></textarea>
+    <label class="field__label" for="f-nachricht">
+      Nachricht <span class="field__req" aria-hidden="true">*</span>
+    </label>
+  </p>
+
+  {
+    /* Honeypot — hidden from people, tempting to bots. Filled ⇒ silently dropped. */
+  }
+  <div class="hp" aria-hidden="true">
+    <label for="f-website">Website</label>
+    <input
+      id="f-website"
+      name="website"
+      type="text"
+      tabindex="-1"
+      autocomplete="off"
+    />
+  </div>
+
+  <button class="cform__submit" type="submit" data-label="Absenden">
+    Absenden
+  </button>
+
+  <p class="cform__status" role="status" aria-live="polite"></p>
+</form>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>(".cform");
+  if (form) {
+    const email = form.dataset.email ?? "";
+    const status = form.querySelector<HTMLElement>(".cform__status");
+
+    // German labels for the composed mail body, in reading order.
+    const labels: Record<string, string> = {
+      name: "Name",
+      firma: "Firma",
+      adresse: "Adresse",
+      email: "Email",
+      telefon: "Telefon",
+      nachricht: "Nachricht",
+    };
+
+    form.addEventListener("submit", (event) => {
+      // Bot caught the honeypot → pretend success, send nothing.
+      const honey = form.elements.namedItem("website");
+      if (honey instanceof HTMLInputElement && honey.value.trim() !== "") {
+        event.preventDefault();
+        if (status)
+          status.textContent = "Danke, deine Nachricht ist unterwegs.";
+        form.reset();
+        return;
+      }
+
+      // Let the browser surface native validation bubbles for missing fields.
+      if (!form.checkValidity()) {
+        event.preventDefault();
+        form.reportValidity();
+        return;
+      }
+
+      event.preventDefault();
+      const data = new FormData(form);
+      const lines: string[] = [];
+      for (const [key, label] of Object.entries(labels)) {
+        const value = (data.get(key) ?? "").toString().trim();
+        if (value) lines.push(`${label}: ${value}`);
+      }
+
+      const who = (data.get("name") ?? "").toString().trim() || "Studio Uto";
+      const subject = `Anfrage — ${who}`;
+      const href = `mailto:${email}?subject=${encodeURIComponent(
+        subject,
+      )}&body=${encodeURIComponent(lines.join("\n"))}`;
+
+      window.location.href = href;
+      if (status) {
+        status.textContent =
+          "Dein Mailprogramm öffnet sich mit der Nachricht — zum Senden nur noch abschicken.";
+      }
+    });
+  }
+</script>
+
+<style>
+  .cform {
+    /* Field type scale — large, like a headline set on ruled paper. */
+    --field-size: clamp(1.35rem, 2.4vw, 1.8rem);
+    /* Hairline + resting label tuned for the page's grey ground: the rule sits a
+       step darker than the background (a lighter rule would disappear into it),
+       the label a dark charcoal that reads clearly without going full ink. */
+    --field-rule: #82827e;
+    --field-label: #2a2a28;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* One ruled row: transparent input on a hairline, label floating above it. */
+  .field {
+    position: relative;
+    margin: 0;
+    padding-top: 1.1em;
+    border-bottom: 1px solid var(--field-rule);
+    transition: border-color 160ms ease;
+  }
+
+  .field:focus-within {
+    border-bottom-color: var(--color-ink);
+  }
+
+  .field__input {
+    display: block;
+    width: 100%;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    padding: 0 0 0.34em;
+    color: var(--color-ink);
+    font-family: inherit;
+    font-size: var(--field-size);
+    font-weight: 400;
+    line-height: 1.18;
+    letter-spacing: -0.01em;
+    outline: none;
+  }
+
+  .field__textarea {
+    /* Multi-line, but never narrower than the column nor able to break it. */
+    min-height: calc(var(--field-size) * 2.6);
+    max-width: 100%;
+    resize: vertical;
+  }
+
+  .field__label {
+    position: absolute;
+    top: 1.1em;
+    left: 0;
+    color: var(--field-label);
+    font-size: var(--field-size);
+    line-height: 1.18;
+    letter-spacing: -0.01em;
+    pointer-events: none;
+    transform-origin: left top;
+    transition:
+      transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      color 220ms ease;
+  }
+
+  .field__req {
+    color: var(--color-muted);
+  }
+
+  /* Floated state: focused, or holding a value (placeholder no longer shown). */
+  .field__input:focus + .field__label,
+  .field__input:not(:placeholder-shown) + .field__label {
+    transform: translateY(-1.1em) scale(0.46);
+    color: var(--color-ink);
+  }
+
+  /* Visually-hidden honeypot — off-screen, untabbable, hidden from a11y tree. */
+  .hp {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+
+  /*
+   * Submit field — speaks the same language as the header chips: a solid black
+   * field whose label inverts as a soft fill wipes up from the bottom edge on
+   * hover (duplicated label revealed via clip-path; see global .chip rules).
+   */
+  .cform__submit {
+    position: relative;
+    overflow: hidden;
+    margin-top: clamp(20px, 3.2vh, 34px);
+    border: 0;
+    background: var(--color-chip);
+    color: var(--color-chip-label);
+    padding: clamp(14px, 1.8vh, 20px) 16px;
+    font-family: inherit;
+    font-size: clamp(1rem, 1.5vw, 1.25rem);
+    font-weight: 400;
+    letter-spacing: 0.42em;
+    /* Trailing letter-spacing pushes text right; nudge back to optical centre. */
+    text-indent: 0.42em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background-color 120ms ease;
+  }
+
+  .cform__submit::after {
+    content: attr(data-label);
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: 0.42em;
+    text-indent: 0.42em;
+    text-transform: uppercase;
+    background: var(--color-chip-fill);
+    color: var(--color-ink);
+    clip-path: inset(100% 0 0 0);
+    transition: clip-path 260ms cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+  }
+
+  .cform__submit:hover::after,
+  .cform__submit:focus-visible::after {
+    clip-path: inset(0 0 0 0);
+  }
+
+  .cform__status {
+    margin: 0.9em 0 0;
+    min-height: 1.2em;
+    color: var(--color-muted);
+    font-size: 0.875rem;
+    line-height: 1.35;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .field__label,
+    .cform__submit::after {
+      transition: none;
+    }
+  }
+</style>

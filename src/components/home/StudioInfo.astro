@@ -1,0 +1,173 @@
+---
+import { studioSections } from "@/lib/studio";
+---
+
+{/*
+ * The studio fact sheet. Each section reuses the impressionen "row" idiom — a
+ * full-width hairline rule, the heading set large in the left column, the detail
+ * stacked in the right — so the homepage reads in the same editorial voice as
+ * the rest of the site. Section ids are the scroll-spy / anchor targets.
+ */}
+<div class="studio-info">
+  {
+    studioSections.map((section) => (
+      <section class="info" id={section.id} aria-labelledby={`${section.id}-h`}>
+        <div class="info__head">
+          <h2 class="info__title" id={`${section.id}-h`}>
+            {section.title}
+          </h2>
+        </div>
+
+        <div class="info__body">
+          {section.blocks.map((block) => (
+            <div class="block">
+              {block.label && <p class="block__label">{block.label}</p>}
+
+              {block.pairs && (
+                <dl class="pairs">
+                  {block.pairs.map(([term, detail]) => (
+                    <div class="pairs__row">
+                      <dt class="pairs__term">{term}</dt>
+                      <dd class="pairs__detail">{detail}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+
+              {block.lines && (
+                <ul class="lines" role="list">
+                  {block.lines.map((line) => (
+                    <li class="lines__item">{line}</li>
+                  ))}
+                </ul>
+              )}
+
+              {block.note && <p class="block__note">{block.note}</p>}
+            </div>
+          ))}
+        </div>
+      </section>
+    ))
+  }
+</div>
+
+<style>
+  .studio-info {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(40px, 7vh, 88px);
+    margin-top: clamp(28px, 5vh, 56px);
+  }
+
+  /*
+   * Two equal columns under a shared full-width hairline: heading left, detail
+   * right (the impressionen EntityRow grammar). `scroll-margin-top` clears the
+   * pinned section-nav bar so an anchored heading isn't tucked beneath it.
+   */
+  .info {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: clamp(28px, 5vw, 72px);
+    align-items: start;
+    border-top: 1px solid var(--color-ink);
+    padding-top: clamp(14px, 2vh, 22px);
+    scroll-margin-top: clamp(58px, 9vh, 84px);
+  }
+
+  /* Heading — large grotesque, tightly leaded, matching the manifesto scale. */
+  .info__title {
+    margin: 0;
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+    font-weight: 400;
+    line-height: 1.06;
+    letter-spacing: -0.015em;
+  }
+
+  .info__body {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(20px, 3vh, 34px);
+    min-width: 0;
+  }
+
+  .block {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Micro-label above a block — tracked caps, muted, the spec-sheet voice. */
+  .block__label {
+    margin: 0 0 0.5em;
+    font-size: 0.6875rem;
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+
+  /* Body type scale shared by pairs + lines, matching the entity meta scale. */
+  .pairs,
+  .lines {
+    margin: 0;
+    padding: 0;
+    font-size: clamp(1.05rem, 1.5vw, 1.35rem);
+    line-height: 1.3;
+    letter-spacing: 0.003em;
+  }
+
+  /* Term/detail rows ride their own hairlines — a quiet price-list rhythm. */
+  .pairs__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1.5em;
+    padding: 0.5em 0;
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .pairs__row:first-child {
+    padding-top: 0;
+  }
+
+  .pairs__term {
+    margin: 0;
+    color: var(--color-ink);
+  }
+
+  .pairs__detail {
+    margin: 0;
+    color: var(--color-ink);
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .lines {
+    list-style: none;
+  }
+
+  .lines__item {
+    padding: 0.32em 0;
+    color: var(--color-ink);
+  }
+
+  .lines__item + .lines__item {
+    border-top: 1px solid var(--color-line);
+  }
+
+  /* Trailing caveat — set down a notch in the muted tone. */
+  .block__note {
+    margin: 0.85em 0 0;
+    font-size: 0.9375rem;
+    line-height: 1.4;
+    color: var(--color-muted);
+  }
+
+  /* Stack on narrow screens: heading leads, detail follows (EntityRow @720). */
+  @media (max-width: 720px) {
+    .info {
+      grid-template-columns: 1fr;
+      row-gap: clamp(14px, 3vh, 22px);
+    }
+  }
+</style>

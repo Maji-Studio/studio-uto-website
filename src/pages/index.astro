@@ -1,8 +1,10 @@
 ---
 import GalleryFrame from "@/components/home/GalleryFrame.astro";
 import Logo from "@/components/home/Logo.astro";
-import SideNav from "@/components/home/SideNav.astro";
+import SectionNav from "@/components/home/SectionNav.astro";
 import SiteHeader from "@/components/home/SiteHeader.astro";
+import StudioInfo from "@/components/home/StudioInfo.astro";
+import SiteFooter from "@/components/site/SiteFooter.astro";
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { site } from "@/lib/site";
 ---
@@ -12,15 +14,22 @@ import { site } from "@/lib/site";
     <Logo />
     <SiteHeader />
     <GalleryFrame />
+
+    {/* Studio fact sheet — the sticky section nav pins below the hero. */}
+    <SectionNav />
+    <StudioInfo />
+
+    <SiteFooter />
   </main>
-  <SideNav />
 </BaseLayout>
 
 <style>
   .home {
     display: flex;
     flex-direction: column;
+    /* The hero (logo + header + gallery) holds the first screen; the studio
+       fact sheet and its sticky nav begin just past the fold. */
     min-height: 100dvh;
-    padding: clamp(6px, 1vh, 12px) var(--page-pad) calc(var(--page-pad) + 44px);
+    padding: clamp(6px, 1vh, 12px) var(--page-pad) var(--page-pad);
   }
 </style>

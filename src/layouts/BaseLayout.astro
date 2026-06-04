@@ -27,6 +27,34 @@ const pageTitle = title === site.name ? title : `${title} | ${site.name}`;
       crossorigin
     />
     <title>{pageTitle}</title>
+
+    {/*
+     * View-transition logo restore. A cross-document transition snapshots the
+     * incoming logo at its first rendering opportunity — which is BEFORE the
+     * bundled (deferred) logo script fits it — so the wordmark would morph from
+     * the previous page's fitted state to this page's unfitted default and then
+     * snap. The `pagereveal` event fires after the new DOM is parsed but before
+     * that snapshot, so we re-apply the last fitted appearance there. The
+     * listener must be registered from a classic, parser-blocking head script
+     * (`is:inline`, not a module) to be in place before `pagereveal` fires.
+     * Logo.astro persists the values; here we only paint them in time.
+     */}
+    <script is:inline>
+      window.addEventListener("pagereveal", () => {
+        try {
+          var saved = JSON.parse(
+            sessionStorage.getItem("uto-logo-fit") || "null",
+          );
+          if (!saved) return;
+          var logo = document.querySelector(".logo");
+          if (!logo) return;
+          logo.style.fontVariationSettings = saved.fvs;
+          logo.style.columnGap = saved.gap;
+          logo.style.transform = saved.transform;
+          logo.dataset.fit = "1";
+        } catch (e) {}
+      });
+    </script>
   </head>
   <body>
     <a class="skip-link" href="#content">Zum Inhalt springen</a>

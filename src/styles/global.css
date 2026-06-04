@@ -6,6 +6,26 @@
   font-display: block;
 }
 
+/* Cross-document (MPA) View Transitions. Each navigation stays a real page
+   load — so the logo's fit/contrast script runs fresh every time — while the
+   browser animates between the outgoing and incoming snapshots. The logo opts
+   out of the page-wide cross-fade via its own view-transition-name (see
+   Logo.astro), so it stays rock-steady as the page anchor while the rest
+   cross-fades. Chromium-only today; other browsers fall back to an instant,
+   un-animated navigation with no breakage. */
+@view-transition {
+  navigation: auto;
+}
+
+/* No opacity cross-fade between pages. The default root animation is an
+   opacity fade of the whole-page snapshot; disabling it makes the page content
+   swap instantly while the wordmark — its own transition group (see Logo.astro)
+   — stays anchored in place. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
 :root {
   /* Design tokens. */
   /* Helvetica where installed (macOS/iOS); Arial is the metric-compatible
@@ -36,6 +56,9 @@
   --page-pad: clamp(7px, 0.8vw, 11px);
 
   /* Applied to the document root. */
+  /* Anchor jumps from the in-page section nav glide instead of snapping
+     (suppressed under prefers-reduced-motion below). */
+  scroll-behavior: smooth;
   color: var(--color-ink);
   background: var(--color-paper);
   font-family: var(--font-sans);
@@ -176,7 +199,20 @@ a.chip--active:not([href="#"]):hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  :root {
+    scroll-behavior: auto;
+  }
+
   a.chip:not([href="#"])::after {
     transition: none;
+  }
+
+  /* Cross-document view transitions aren't auto-suppressed for reduced motion,
+     so collapse every snapshot animation to an instant cut. */
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
   }
 }

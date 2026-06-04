@@ -30,6 +30,41 @@ const { class: className } = Astro.props;
     let fittedWdth = 100; // last width-axis value chosen by fit()
     const vars = (wdth: number) => `"wght" 100, "wdth" ${wdth}, "CONT" ${cont}`;
 
+    // Cross-document view transitions snapshot the incoming logo at first paint —
+    // before fit() (which waits on document.fonts.ready) has run. Without help the
+    // transition would morph from the previous page's fitted wordmark to this
+    // page's unfitted default, then snap once fit() lands. So we persist the last
+    // fitted appearance and re-apply it synchronously here, before first paint:
+    // the captured snapshot is already correct, and fit() below re-measures to the
+    // same values, so there is no visible change. Viewport is unchanged across a
+    // navigation, so the restored values are exact.
+    const STORE_KEY = "uto-logo-fit";
+    const persist = () => {
+      try {
+        sessionStorage.setItem(
+          STORE_KEY,
+          JSON.stringify({
+            fvs: logo.style.fontVariationSettings,
+            gap: logo.style.columnGap,
+            transform: logo.style.transform,
+            cont,
+            wdth: fittedWdth,
+          }),
+        );
+      } catch {}
+    };
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(STORE_KEY) ?? "null");
+      if (saved) {
+        cont = saved.cont ?? cont;
+        fittedWdth = saved.wdth ?? fittedWdth;
+        logo.style.fontVariationSettings = saved.fvs;
+        logo.style.columnGap = saved.gap;
+        logo.style.transform = saved.transform;
+        logo.dataset.fit = "1";
+      }
+    } catch {}
+
     // Width of the three glyphs (no gap, no transform) at a given wdth axis value.
     const tripleWidth = (wdth: number) => {
       logo.style.transform = "none";
@@ -79,6 +114,7 @@ const { class: className } = Astro.props;
       logo.style.columnGap = `${gap}px`;
       logo.style.transform = scale === 1 ? "none" : `scaleX(${scale})`;
       logo.dataset.fit = "1";
+      persist(); // so the next page can restore this exact fit before first paint
     };
 
     let raf = 0;
@@ -104,6 +140,7 @@ const { class: className } = Astro.props;
       if (next === cont) return;
       cont = next;
       logo.style.fontVariationSettings = vars(fittedWdth);
+      persist(); // keep the stored contrast in sync for the next navigation
     };
     window.addEventListener(
       "pointermove",
@@ -123,6 +160,15 @@ const { class: className } = Astro.props;
     width: max-content;
     align-items: flex-start;
     column-gap: 4px;
+    /*
+     * Shared element across page navigations. With cross-document view
+     * transitions enabled (see global.css), the browser pairs this wordmark on
+     * the outgoing and incoming pages and morphs it directly instead of folding
+     * it into the page-wide cross-fade — so the logo holds steady at the top
+     * while everything below it transitions. Must be unique per document; there
+     * is exactly one .logo per page.
+     */
+    view-transition-name: site-logo;
     margin: 0;
     padding: 0;
     color: var(--color-ink);
