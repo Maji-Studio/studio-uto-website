@@ -13,10 +13,8 @@ const description =
 
 <BaseLayout title="Impressionen" description={description}>
   <main id="content" class="impressionen">
-    {/* Wordmark cropped against the top edge — its own width-fit script runs. */}
-    <div class="impressionen__crown">
-      <Logo />
-    </div>
+    {/* Full wordmark at the top — identical treatment to the homepage. */}
+    <Logo />
 
     <SiteHeader />
 
@@ -45,18 +43,6 @@ const description =
     flex-direction: column;
     min-height: 100dvh;
     padding: clamp(6px, 1vh, 12px) var(--page-pad) var(--page-pad);
-  }
-
-  /*
-   * The giant UTO is taller than this band, bottom-aligned and clipped — so it
-   * bleeds off the top edge as in the reference. No own horizontal padding, so
-   * the wordmark's fit script measures the full content width.
-   */
-  .impressionen__crown {
-    display: flex;
-    align-items: flex-end;
-    overflow: hidden;
-    height: clamp(44px, 8vh, 92px);
   }
 
   .impressionen__entities {

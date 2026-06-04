@@ -14,9 +14,9 @@ export interface NavItem {
   href: string;
 }
 
-/** Primary navigation (header centre). Destinations land in later phases. */
+/** Primary navigation (header centre). Remaining destinations land in later phases. */
 export const primaryNav: NavItem[] = [
-  { label: "Studio", href: "#" },
+  { label: "Studio", href: "/" },
   { label: "Impressionen", href: "/impressionen/" },
   { label: "Information", href: "#" },
   { label: "Equipment", href: "#" },

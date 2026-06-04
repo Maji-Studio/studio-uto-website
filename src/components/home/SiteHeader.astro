@@ -5,11 +5,9 @@ import { primaryNav, site, socials } from "@/lib/site";
 const path = Astro.url.pathname;
 
 // A nav item is active when its real route matches the current path. Items still
-// pointing at placeholder targets ("#") never match — except Studio, which stands
-// in for the homepage until its destination lands.
-function isNavActive(href: string, index: number) {
-  if (href.startsWith("/")) return isRouteActive(path, href);
-  return path === "/" && index === 0;
+// pointing at placeholder targets ("#") never match.
+function isNavActive(href: string) {
+  return href.startsWith("/") && isRouteActive(path, href);
 }
 
 // Build-time German date; refreshed client-side so it always shows "today".
@@ -28,7 +26,12 @@ const today = formatGermanDate(new Date());
 
 <header class="site-header">
   <div class="site-header__group site-header__meta">
-    <a class="chip" href="/" aria-label={`${site.name} — Startseite`}>
+    <a
+      class="chip"
+      href="/"
+      data-label="STUDIO UTO"
+      aria-label={`${site.name} — Startseite`}
+    >
       STUDIO UTO
     </a>
     <time class="chip" id="today" datetime={new Date().toISOString().slice(0, 10)}>
@@ -38,11 +41,12 @@ const today = formatGermanDate(new Date());
 
   <nav class="site-header__group site-header__nav" aria-label="Hauptnavigation">
     {
-      primaryNav.map((item, i) => (
+      primaryNav.map((item) => (
         <a
-          class:list={["chip", { "chip--active": isNavActive(item.href, i) }]}
+          class:list={["chip", { "chip--active": isNavActive(item.href) }]}
           href={item.href}
-          aria-current={isNavActive(item.href, i) ? "page" : undefined}
+          data-label={item.label}
+          aria-current={isNavActive(item.href) ? "page" : undefined}
         >
           {item.label}
         </a>
@@ -51,7 +55,13 @@ const today = formatGermanDate(new Date());
   </nav>
 
   <div class="site-header__group site-header__socials">
-    {socials.map((item) => <a class="chip" href={item.href}>{item.label}</a>)}
+    {
+      socials.map((item) => (
+        <a class="chip" href={item.href} data-label={item.label}>
+          {item.label}
+        </a>
+      ))
+    }
   </div>
 </header>
 

@@ -22,6 +22,10 @@
   --color-chip: #111111;
   --color-chip-hover: #2a2a2a;
   --color-chip-label: #ffffff;
+  /* Hover fill for navigating chips: a soft off-white (not pure paper-white) so
+     the filled chip stays distinct from the white page behind it. Matches the
+     tone the old difference-blend panel produced over the near-black field. */
+  --color-chip-fill: #eeeeee;
   /* Active/selected field reads as a lighter neutral grey with dark label. */
   --color-chip-active: #8c8c89;
   --color-chip-active-hover: #97977f;
@@ -114,4 +118,65 @@ a.chip:hover {
 
 a.chip--active:hover {
   background: var(--color-chip-active-hover);
+}
+
+/* Navigation chips that point at a real destination (any href that isn't the
+   "#" placeholder — including the current-page "active" chip) get a rising-fill
+   hover: a panel wipes up from the bottom edge carrying a recoloured copy of
+   the label, so the text appears to invert as the fill passes it.
+
+   Done with a duplicated label (content: attr(data-label)) revealed via
+   clip-path, NOT a mix-blend-mode panel. A blended/transformed pseudo-element
+   gets promoted to its own GPU layer mid-animation in Chrome and stops painting
+   the blend — so the hover silently did nothing. clip-path has no such problem,
+   and letting each variant set its own fill colours reads cleaner than a blend
+   anyway. Every navigating chip needs a data-label attribute with its text. */
+a.chip:not([href="#"]) {
+  position: relative;
+}
+
+a.chip:not([href="#"])::after {
+  content: attr(data-label);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 3px 11px;
+  /* Dark chip → soft off-white fill with a dark label. */
+  background: var(--color-chip-fill);
+  color: var(--color-ink);
+  white-space: nowrap;
+  /* Clipped to nothing at the bottom edge; revealed upward on hover. */
+  clip-path: inset(100% 0 0 0);
+  transition: clip-path 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+a.chip:not([href="#"]):hover::after {
+  clip-path: inset(0 0 0 0);
+}
+
+/* The active (current-page) chip is light grey, so it inverts the other way:
+   a dark fill with a light label. Same specificity as the base ::after rule, so
+   it must stay after it in source order to win. */
+a.chip--active:not([href="#"])::after {
+  background: var(--color-chip);
+  color: var(--color-chip-label);
+}
+
+/* Hold the resting field during hover so only the rising panel moves (otherwise
+   the not-yet-covered top edge would also shift toward the darken-hover colour). */
+a.chip:not([href="#"]):hover {
+  background: var(--color-chip);
+}
+
+a.chip--active:not([href="#"]):hover {
+  background: var(--color-chip-active);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  a.chip:not([href="#"])::after {
+    transition: none;
+  }
 }

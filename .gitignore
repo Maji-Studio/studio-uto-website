@@ -18,3 +18,5 @@ coverage/
 
 # Local agent config (machine-specific)
 .claude/settings.local.json
+# Contains a machine-local MCP token — never commit.
+.mcp.json
