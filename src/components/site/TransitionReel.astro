@@ -1,9 +1,9 @@
 ---
 /*
- * PROTOTYPE — throwaway. The studio reel shown inside variant D's rising panel
- * (see PageTransitionHead.astro for the renderer and timing). Hidden except
- * while a D transition runs; it has its own view-transition-name so the
- * browser keeps it live on top of the page snapshots.
+ * Studio reel shown inside the page transition's rising panel (see
+ * PageTransition.astro for the renderer, global.css for the choreography).
+ * Hidden except while a transition runs; its own view-transition-name keeps it
+ * live between the page snapshots and the wordmark/menu.
  */
 ---
 
@@ -16,7 +16,6 @@
   .vt-reel {
     position: fixed;
     inset: 0;
-    /* Below the logo in paint order, so the wordmark's group stays on top. */
     z-index: -1;
     display: none;
     background: var(--color-ink);
@@ -27,8 +26,8 @@
     display: block;
   }
 
-  /* Clean grade: muted greyscale, pulled down so the white wordmark and chip
-     hold on top of it. */
+  /* Clean grade: muted greyscale, pulled down so the inverted (white) wordmark
+     and menu hold on top of it. */
   .vt-reel canvas {
     display: block;
     width: 100%;

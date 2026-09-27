@@ -1,0 +1,205 @@
+---
+import { getImage } from "astro:assets";
+
+import studio1 from "@/assets/studio/image-1.jpg";
+import studio2 from "@/assets/studio/image-2.jpg";
+
+/*
+ * Page-transition runtime (choreography lives in global.css):
+ *
+ *   0–320ms    a panel carrying the studio reel rises over the old page
+ *   320–480ms  the reel holds
+ *   480–800ms  the new page rises over the reel
+ *
+ * The wordmark and menu stay anchored on top and invert exactly where the
+ * reel passes behind them.
+ *
+ * The reel is a canvas (TransitionReel.astro) drawn at a stepped 12fps with
+ * shutter-sampled motion blur. Stand-in footage: the studio stills with a
+ * camera drift — swap in a playing <video> inside shootAt() for real footage.
+ *
+ * Must be a classic inline <head> script: `pageswap`/`pagereveal` fire before
+ * bundled (deferred) scripts run.
+ */
+const reelSrcs = (
+  await Promise.all(
+    [studio2, studio1].map((src) =>
+      getImage({ src, width: 1080, format: "webp" }),
+    ),
+  )
+).map((img) => img.src);
+---
+
+<script is:inline define:vars={{ reelSrcs }}>
+  var FPS = 12; // presented frame rate
+  var TRAIL = 0.2; // per-rAF blend weight; lower = longer motion blur
+  var SAMPLES = 6; // shutter samples per rAF
+  var SAMPLE_ALPHA = 1 - Math.pow(1 - TRAIL, 1 / SAMPLES);
+  var SHOT = 1.2; // seconds per still before a hard cut
+  var CLOCK = "uto-reel-t"; // reel time carries over between pages
+
+  var imgs = reelSrcs.map(function (src) {
+    var img = new Image();
+    img.src = src;
+    return img;
+  });
+
+  // Camera drift per shot: [scale from, scale to, x from, x to] (x as a
+  // fraction of the overflow). Alternating direction so cuts read as new angles.
+  var MOVES = [
+    [1.1, 1.4, 0.05, 0.95],
+    [1.45, 1.15, 0.95, 0.1],
+  ];
+
+  function drawCover(ctx, img, w, h, scale, xT) {
+    if (!img.complete || !img.naturalWidth) return;
+    var s = Math.max(w / img.naturalWidth, h / img.naturalHeight) * scale;
+    var dw = img.naturalWidth * s;
+    var dh = img.naturalHeight * s;
+    ctx.drawImage(img, (w - dw) * xT, (h - dh) / 2, dw, dh);
+  }
+
+  function startReel(canvas) {
+    var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    var w = (canvas.width = Math.round(innerWidth * dpr));
+    var h = (canvas.height = Math.round(innerHeight * dpr));
+    var out = canvas.getContext("2d");
+    var acc = document.createElement("canvas");
+    acc.width = w;
+    acc.height = h;
+    var ctx = acc.getContext("2d");
+
+    var offset = 0;
+    try {
+      offset = parseFloat(sessionStorage.getItem(CLOCK)) || 0;
+    } catch (e) {}
+    var t0 = performance.now();
+    var nextPresent = t0;
+    var first = true;
+    var tPrev = offset;
+    var raf = 0;
+
+    // Camera state at reel time t (seconds).
+    function shootAt(t) {
+      var shot = Math.floor(t / SHOT);
+      var p = (t % SHOT) / SHOT;
+      var move = MOVES[shot % MOVES.length];
+      drawCover(
+        ctx,
+        imgs[shot % imgs.length],
+        w,
+        h,
+        move[0] + (move[1] - move[0]) * p,
+        move[2] + (move[3] - move[2]) * p,
+      );
+    }
+
+    function frame(now) {
+      // rAF timestamps can precede t0 by a frame; never run the clock backwards.
+      var t = offset + Math.max(0, now - t0) / 1000;
+      if (first) {
+        ctx.globalAlpha = 1;
+        shootAt(t);
+      } else {
+        // Shutter: fill the gap since the last rAF with evenly spaced samples,
+        // blended into the running average. Smooth streaks, no ghost copies.
+        ctx.globalAlpha = SAMPLE_ALPHA;
+        for (var k = 1; k <= SAMPLES; k++) {
+          shootAt(tPrev + ((t - tPrev) * k) / SAMPLES);
+        }
+      }
+      tPrev = t;
+      // Present at a fixed low frame rate: the visible canvas steps.
+      if (first || now >= nextPresent) {
+        out.drawImage(acc, 0, 0);
+        nextPresent = Math.max(nextPresent + 1000 / FPS, now);
+      }
+      first = false;
+      raf = requestAnimationFrame(frame);
+    }
+    frame(t0);
+
+    return function stop() {
+      cancelAnimationFrame(raf);
+      try {
+        sessionStorage.setItem(
+          CLOCK,
+          String(offset + (performance.now() - t0) / 1000),
+        );
+      } catch (e) {}
+    };
+  }
+
+  function navChips() {
+    return document.querySelectorAll(".site-header__nav a.chip");
+  }
+
+  // Old page, right before it is captured: move the menu's active chip to the
+  // destination (and drop any hover fill). The old and new menu snapshots then
+  // match, so the inversion wipes over one consistent menu.
+  window.addEventListener("pageswap", function (e) {
+    if (!e.viewTransition || !e.activation) return;
+    var path = new URL(e.activation.entry.url).pathname;
+    document.documentElement.classList.add("vt-page", "vt-swapping");
+    navChips().forEach(function (a) {
+      var href = a.getAttribute("href");
+      var on =
+        href.charAt(0) === "/" &&
+        (href === "/" ? path === "/" : path.indexOf(href) === 0);
+      a.dataset.vtWasActive = a.classList.contains("chip--active") ? "1" : "";
+      // Skip the background-color transition: the snapshot is taken right
+      // after this handler, before a transition could run.
+      a.style.transition = "none";
+      a.classList.toggle("chip--active", on);
+    });
+  });
+
+  // Back/forward cache: undo the pageswap tweaks on the restored page.
+  window.addEventListener("pageshow", function (e) {
+    if (!e.persisted) return;
+    document.documentElement.classList.remove("vt-page", "vt-swapping");
+    navChips().forEach(function (a) {
+      if (a.dataset.vtWasActive === undefined) return;
+      a.classList.toggle("chip--active", a.dataset.vtWasActive === "1");
+      a.style.transition = "";
+      delete a.dataset.vtWasActive;
+    });
+  });
+
+  // New page, before its first frame: start the reel and measure where the
+  // wordmark and menu sit, so their inverted copies can be clipped to the
+  // reel's edges in viewport space (see vt-edges in global.css).
+  window.addEventListener("pagereveal", function (e) {
+    if (!e.viewTransition) return;
+    var root = document.documentElement;
+    root.classList.add("vt-page");
+    e.viewTransition.finished.finally(function () {
+      root.classList.remove("vt-page");
+    });
+
+    [
+      [".logo", "logo"],
+      [".site-header", "header"],
+    ].forEach(function (pair) {
+      var el = document.querySelector(pair[0]);
+      if (!el) return;
+      var r = el.getBoundingClientRect();
+      root.style.setProperty("--vt-" + pair[1] + "-top", r.top + "px");
+      root.style.setProperty("--vt-" + pair[1] + "-bottom", r.bottom + "px");
+    });
+
+    // Reduced motion: the transition collapses to a cut (global.css), no reel.
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    var canvas = document.querySelector("[data-vt-reel] canvas");
+    if (!canvas) return;
+    var dest = document.querySelector("[data-vt-reel-dest]");
+    if (dest) dest.textContent = "→ " + document.title.split(" | ")[0];
+
+    root.classList.add("vt-reel-on");
+    var stop = startReel(canvas);
+    e.viewTransition.finished.finally(function () {
+      stop();
+      root.classList.remove("vt-reel-on");
+    });
+  });
+</script>

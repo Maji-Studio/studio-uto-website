@@ -1,7 +1,6 @@
 ---
-import PageTransitionHead from "@/components/prototype/PageTransitionHead.astro";
-import PrototypeSwitcher from "@/components/prototype/PrototypeSwitcher.astro";
-import TransitionReel from "@/components/prototype/TransitionReel.astro";
+import PageTransition from "@/components/site/PageTransition.astro";
+import TransitionReel from "@/components/site/TransitionReel.astro";
 import { site } from "@/lib/site";
 import "@/styles/global.css";
 
@@ -64,13 +63,11 @@ const pageTitle = title === site.name ? title : `${title} | ${site.name}`;
       });
     </script>
 
-    {/* PROTOTYPE — page-transition variants, dev only. */}
-    {import.meta.env.DEV && <PageTransitionHead />}
+    <PageTransition />
   </head>
   <body>
     <a class="skip-link" href="#content">Zum Inhalt springen</a>
     <slot />
-    {import.meta.env.DEV && <TransitionReel />}
-    {import.meta.env.DEV && <PrototypeSwitcher />}
+    <TransitionReel />
   </body>
 </html>
