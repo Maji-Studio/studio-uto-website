@@ -6,10 +6,10 @@
  * Layout mirrors an entity row, blown up to the viewport and inverted to black:
  * a full-width hairline, name + client on the left, close on the right, the
  * image as large as fits below at its own ratio, and a prev/next bar along the
- * bottom. The two chevrons
+ * bottom. The two arrows
  * share the width like the wordmark's glyphs share theirs — hovering one swells
- * it to 80% while the other gives up the difference — and are drawn fully
- * distorted, stretching with their box.
+ * it to 80% while the other gives up the difference. Only the shafts stretch;
+ * the heads keep their shape, so the pair reads as one split ←→.
  *
  * Opening, closing and stepping are same-document View Transitions: the clicked
  * thumbnail morphs into the full image while a black panel and then the viewer's
@@ -46,15 +46,12 @@
       data-lightbox-step="-1"
       aria-label="Vorheriges Bild"
     >
-      <svg
-        class="chevron"
-        aria-hidden="true"
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-      >
-        <polygon points="0,0 34,50 0,100"></polygon>
-        <polygon points="24,0 66,0 100,50 66,100 24,100 58,50"></polygon>
-      </svg>
+      <span class="arrow" aria-hidden="true">
+        <span class="arrow__shaft"></span>
+        <svg class="arrow__head" viewBox="40.8 0 59.2 100">
+          <path d="M45.4 4.6 L90.81 50 L45.4 95.4"></path>
+        </svg>
+      </span>
     </button>
     <button
       class="lightbox__step lightbox__step--next"
@@ -62,15 +59,12 @@
       data-lightbox-step="1"
       aria-label="Nächstes Bild"
     >
-      <svg
-        class="chevron"
-        aria-hidden="true"
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-      >
-        <polygon points="0,0 34,50 0,100"></polygon>
-        <polygon points="24,0 66,0 100,50 66,100 24,100 58,50"></polygon>
-      </svg>
+      <span class="arrow" aria-hidden="true">
+        <span class="arrow__shaft"></span>
+        <svg class="arrow__head" viewBox="40.8 0 59.2 100">
+          <path d="M45.4 4.6 L90.81 50 L45.4 95.4"></path>
+        </svg>
+      </span>
     </button>
   </nav>
 </dialog>
@@ -447,19 +441,45 @@
     outline-offset: -2px;
   }
 
-  /* Double chevron in white on the black viewer: a solid triangle plus a
-     thick chevron, parallel-edged with a constant dark gap between them, the
-     pair spanning the box edge to edge. Drawn in a 100×100 box and stretched
-     without preserving aspect, so it distorts with its button. */
-  .chevron {
-    display: block;
+  /* Long arrow in white on the black viewer: an open 90° head at the outer
+     edge and a shaft running the rest of the button. The head is drawn at a
+     fixed ratio (stroke 13% of its height, arms at 45°, the miter tip on the
+     box edge) and only the shaft stretches, so widening the button lengthens
+     the arrow without distorting it. Drawn pointing right; prev is mirrored. */
+  .arrow {
+    --stroke: calc(var(--arrow-h) * 0.13);
+
+    position: relative;
+    display: flex;
+    justify-content: flex-end;
     width: 100%;
     height: 100%;
-    fill: currentColor;
   }
 
-  .lightbox__step--prev .chevron {
+  .lightbox__step--prev .arrow {
     scale: -1 1;
+  }
+
+  /* Ends at the head's centreline tip, where the joint covers its corners. */
+  .arrow__shaft {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: calc(var(--arrow-h) * 0.0919);
+    height: var(--stroke);
+    translate: 0 -50%;
+    background: currentColor;
+  }
+
+  .arrow__head {
+    position: relative;
+    flex: none;
+    height: 100%;
+    aspect-ratio: 59.2 / 100;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 13;
+    stroke-linejoin: miter;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -530,17 +550,17 @@
 
   html[data-lb-vt="close"]::view-transition-old(lb-rule),
   html[data-lb-vt="close"]::view-transition-old(lb-title) {
-    animation: lb-fade-out 140ms linear 360ms both;
+    animation: lb-fade-out 100ms linear 230ms both;
   }
 
   html[data-lb-vt="close"]::view-transition-new(lb-rule),
   html[data-lb-vt="close"]::view-transition-new(lb-title) {
-    animation: lb-fade-in 140ms linear 360ms both;
+    animation: lb-fade-in 100ms linear 230ms both;
   }
 
-  /* Snapshots cover the morphing box, so an image keeps its ratio while the
-     box changes shape — the 3:2 thumbnail crop opens up into the whole frame,
-     and stepping between a landscape and a portrait crops rather than squashes.
+  /* Snapshots cover the morphing box, so the box works as a mask: the image
+     scales evenly while the box changes shape — the 3:2 thumbnail crop opens
+     up into the whole format on open and closes back down to it on close.
      No cross-fade: only the full-size image is shown in flight (the new one
      when opening, the old one when closing); covered into the thumbnail's box
      it is the thumbnail, so there is nothing to blend. */
@@ -550,6 +570,12 @@
     height: 100%;
     object-fit: cover;
     animation: none;
+  }
+
+  /* The group is the mask. A covered snapshot is not clipped to its own box,
+     so without this a portrait spills out of the 3:2 thumbnail frame. */
+  html[data-lb-vt]::view-transition-group(lb-image) {
+    overflow: clip;
   }
 
   html[data-lb-vt="open"]::view-transition-old(lb-image),
@@ -583,10 +609,11 @@
     animation: lb-lift 420ms cubic-bezier(0.22, 1, 0.36, 1) 160ms both;
   }
 
-  /* Step: the new image is there at once and only the frame moves, easing
-     from the old image's format to the new one with the image covering it all
-     the way (cropped, never squashed or letterboxed). The old image is dropped
-     outright rather than blended. The chrome swaps without a fade. */
+  /* Step: the mask's width and height ease from the old image's format to
+     the new one; the new image never moves or scales — it sits centred at its
+     own final size from the first frame, cut by the mask as it opens. The old
+     image is gone at once (left underneath, it would show as slivers around a
+     slightly smaller new one). The chrome swaps without a fade. */
   html[data-lb-vt="step"]::view-transition-group(lightbox),
   html[data-lb-vt="step"]::view-transition-group(lb-rule),
   html[data-lb-vt="step"]::view-transition-group(lb-title),
@@ -596,7 +623,16 @@
   }
 
   html[data-lb-vt="step"]::view-transition-group(lb-image) {
-    animation-duration: 480ms;
+    animation-duration: 560ms;
+    animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+  }
+
+  html[data-lb-vt="step"]::view-transition-old(lb-image),
+  html[data-lb-vt="step"]::view-transition-new(lb-image) {
+    inset: 50% auto auto 50%;
+    width: auto;
+    height: auto;
+    translate: -50% -50%;
   }
 
   html[data-lb-vt="step"]::view-transition-old(lb-image) {
