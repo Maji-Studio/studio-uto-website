@@ -1,4 +1,7 @@
 ---
+import PageTransitionHead from "@/components/prototype/PageTransitionHead.astro";
+import PrototypeSwitcher from "@/components/prototype/PrototypeSwitcher.astro";
+import TransitionReel from "@/components/prototype/TransitionReel.astro";
 import { site } from "@/lib/site";
 import "@/styles/global.css";
 
@@ -48,16 +51,26 @@ const pageTitle = title === site.name ? title : `${title} | ${site.name}`;
           if (!saved) return;
           var logo = document.querySelector(".logo");
           if (!logo) return;
-          logo.style.fontVariationSettings = saved.fvs;
+          var glyphs = logo.querySelectorAll(":scope > span");
+          if (!saved.glyphs || saved.glyphs.length !== glyphs.length) return;
           logo.style.columnGap = saved.gap;
-          logo.style.transform = saved.transform;
+          saved.glyphs.forEach(function (s, i) {
+            glyphs[i].style.fontVariationSettings = s.fvs;
+            glyphs[i].style.transform = s.transform;
+            glyphs[i].style.marginRight = s.margin;
+          });
           logo.dataset.fit = "1";
         } catch (e) {}
       });
     </script>
+
+    {/* PROTOTYPE — page-transition variants, dev only. */}
+    {import.meta.env.DEV && <PageTransitionHead />}
   </head>
   <body>
     <a class="skip-link" href="#content">Zum Inhalt springen</a>
     <slot />
+    {import.meta.env.DEV && <TransitionReel />}
+    {import.meta.env.DEV && <PrototypeSwitcher />}
   </body>
 </html>

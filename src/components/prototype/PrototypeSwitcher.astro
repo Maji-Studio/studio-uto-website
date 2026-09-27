@@ -1,0 +1,131 @@
+---
+/*
+ * PROTOTYPE — throwaway floating variant bar for the page-transition prototype
+ * (see PageTransitionHead.astro). Dev-only. ← / → cycle variants (also the
+ * arrow keys); "Play" navigates to the next real page to trigger a transition.
+ */
+const variants = [
+  { key: "A", name: "Full blend" },
+  { key: "B", name: "Slats" },
+  { key: "C", name: "Invert cut" },
+  { key: "D", name: "Reel" },
+];
+---
+
+<div
+  class="proto-switcher"
+  data-proto-switcher
+  data-variants={JSON.stringify(variants)}
+>
+  <button type="button" data-prev aria-label="Previous variant">←</button>
+  <span class="proto-switcher__label" data-label></span>
+  <button type="button" data-next aria-label="Next variant">→</button>
+  <button type="button" class="proto-switcher__play" data-play>Play ↗</button>
+</div>
+
+<script>
+  const KEY = "proto-vt";
+  const PAGES = ["/", "/impressionen/", "/kontakt/"];
+
+  const bar = document.querySelector<HTMLElement>("[data-proto-switcher]");
+
+  if (bar) {
+    const variants: { key: string; name: string }[] = JSON.parse(
+      bar.dataset.variants ?? "[]",
+    );
+    const label = bar.querySelector<HTMLElement>("[data-label]")!;
+    const root = document.documentElement;
+
+    const set = (key: string) => {
+      root.dataset.vt = key;
+      try {
+        sessionStorage.setItem(KEY, key);
+      } catch {}
+      const url = new URL(location.href);
+      url.searchParams.set("variant", key);
+      history.replaceState(history.state, "", url);
+      const v = variants.find((x) => x.key === key);
+      label.textContent = v ? `${v.key} — ${v.name}` : key;
+    };
+
+    const step = (dir: number) => {
+      const i = variants.findIndex((x) => x.key === root.dataset.vt);
+      set(variants[(i + dir + variants.length) % variants.length].key);
+    };
+
+    const play = () => {
+      const i = PAGES.indexOf(location.pathname);
+      location.assign(PAGES[(i + 1) % PAGES.length]);
+    };
+
+    set(root.dataset.vt ?? variants[0].key);
+    bar.querySelector("[data-prev]")!.addEventListener("click", () => step(-1));
+    bar.querySelector("[data-next]")!.addEventListener("click", () => step(1));
+    bar.querySelector("[data-play]")!.addEventListener("click", play);
+
+    window.addEventListener("keydown", (e) => {
+      const t = e.target as HTMLElement | null;
+      if (t?.closest("input, textarea, select, [contenteditable]")) return;
+      if (e.key === "ArrowLeft") step(-1);
+      else if (e.key === "ArrowRight") step(1);
+    });
+  }
+</script>
+
+<style>
+  .proto-switcher {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    translate: -50% 0;
+    padding: 4px;
+    border: 1px solid #000;
+    border-radius: 999px;
+    background: #ffe600;
+    box-shadow: 0 4px 16px rgb(0 0 0 / 0.25);
+    color: #000;
+    font:
+      600 12px/1 ui-monospace,
+      "SF Mono",
+      Menlo,
+      monospace;
+    /* Own transition group so the bar stays put while the page transitions. */
+    view-transition-name: proto-switcher;
+  }
+
+  .proto-switcher button {
+    min-width: 28px;
+    height: 28px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .proto-switcher button:hover {
+    background: rgb(0 0 0 / 0.1);
+  }
+
+  .proto-switcher__label {
+    min-width: 13ch;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .proto-switcher .proto-switcher__play {
+    margin-left: 4px;
+    background: #000;
+    color: #ffe600;
+  }
+
+  .proto-switcher .proto-switcher__play:hover {
+    background: #333;
+  }
+</style>

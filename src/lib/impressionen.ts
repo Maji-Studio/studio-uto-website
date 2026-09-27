@@ -1,8 +1,5 @@
 import type { ImageMetadata } from "astro";
 
-import studio1 from "@/assets/studio/image-1.jpg";
-import studio2 from "@/assets/studio/image-2.jpg";
-
 export interface ImpressionImage {
   /** Imported image asset — optimized at build time by astro:assets. */
   src: ImageMetadata;
@@ -20,30 +17,42 @@ export interface Impression {
 }
 
 /*
- * The Impressionen gallery. Each entry is one collaborator/shoot.
+ * Each collaborator's images live in their own folder under
+ * src/assets/impressionen/, shown in filename order.
  *
- * To add a person: import their images at the top, then append an entry below
- * with `name`, an optional `client`, and an `images` array. Drop alt text on an
- * image when it deserves a specific description; otherwise a name/client-derived
- * fallback is used.
- *
- * The two `studio*` images below are placeholders reused across the grids until
- * real shoot photography lands (see roadmap Phase 4).
+ * The current files are generated mock photography — stand-ins in the spirit of
+ * each collaborator's work, used until the real shoot images land (see roadmap
+ * Phase 4). Replace them by dropping real files into the same folders.
  */
-const placeholders = [studio1, studio2];
+const folders = import.meta.glob<ImageMetadata>(
+  "/src/assets/impressionen/*/*.{jpg,jpeg,png,webp}",
+  { eager: true, import: "default" },
+);
 
-/** Build a placeholder grid of `count` images, cycling the studio photos. */
-function placeholderGrid(count: number): ImpressionImage[] {
-  return Array.from({ length: count }, (_, i) => ({
-    src: placeholders[i % placeholders.length],
-  }));
+/** All images in src/assets/impressionen/<slug>/, sorted by filename. */
+function imagesFrom(slug: string): ImpressionImage[] {
+  return Object.keys(folders)
+    .filter((path) => path.split("/").at(-2) === slug)
+    .sort()
+    .map((path) => ({ src: folders[path] }));
 }
 
+/*
+ * The Impressionen gallery. Each entry is one collaborator/shoot.
+ *
+ * To add a person: create src/assets/impressionen/<slug>/ with their images,
+ * then append an entry below with `name`, an optional `client`, and
+ * `imagesFrom("<slug>")`. Filenames set the order (01-, 02-, …).
+ */
 export const impressionen: Impression[] = [
-  { name: "Nicolas Burri", client: "AKRIS", images: placeholderGrid(6) },
+  {
+    name: "Nicolas Burri",
+    client: "AKRIS",
+    images: imagesFrom("nicolas-burri"),
+  },
   {
     name: "Matthias Kappeler",
     client: "THE NORTH FACE",
-    images: placeholderGrid(9),
+    images: imagesFrom("matthias-kappeler"),
   },
 ];

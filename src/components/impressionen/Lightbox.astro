@@ -1,0 +1,636 @@
+---
+/*
+ * Full-screen viewer for the Impressionen grids. One instance per page; every
+ * EntityRow on the page opens into it (see the `data-lightbox-*` hooks there).
+ *
+ * Layout mirrors an entity row, blown up to the viewport and inverted to black:
+ * a full-width hairline, name + client on the left, close on the right, the
+ * image as large as fits below at its own ratio, and a prev/next bar along the
+ * bottom. The two chevrons
+ * share the width like the wordmark's glyphs share theirs — hovering one swells
+ * it to 80% while the other gives up the difference — and are drawn fully
+ * distorted, stretching with their box.
+ *
+ * Opening, closing and stepping are same-document View Transitions: the clicked
+ * thumbnail morphs into the full image while a black panel and then the viewer's
+ * contents rise from the bottom edge (the chip hover, at page scale). Closing keeps the
+ * same upward direction. Stepping waits for the next large file, then swaps it in
+ * at once while the frame eases from the old format to the new one. Browsers
+ * without View Transitions just open/close/step instantly.
+ */
+---
+
+<dialog class="lightbox" data-lightbox aria-labelledby="lightbox-name">
+  <header class="lightbox__bar">
+    <span class="lightbox__rule" aria-hidden="true"></span>
+    <div class="lightbox__meta">
+      <p class="lightbox__name" id="lightbox-name" data-lightbox-name></p>
+      <p class="lightbox__client" data-lightbox-client></p>
+    </div>
+    <div class="lightbox__actions">
+      <p class="lightbox__count" data-lightbox-count aria-live="polite"></p>
+      <button class="lightbox__close" type="button" data-lightbox-close>
+        Close
+      </button>
+    </div>
+  </header>
+
+  <figure class="lightbox__stage">
+    <img class="lightbox__image" data-lightbox-image alt="" decoding="async" />
+  </figure>
+
+  <nav class="lightbox__nav" aria-label="Bilder">
+    <button
+      class="lightbox__step lightbox__step--prev"
+      type="button"
+      data-lightbox-step="-1"
+      aria-label="Vorheriges Bild"
+    >
+      <svg
+        class="chevron"
+        aria-hidden="true"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+      >
+        <polygon points="0,0 34,50 0,100"></polygon>
+        <polygon points="24,0 66,0 100,50 66,100 24,100 58,50"></polygon>
+      </svg>
+    </button>
+    <button
+      class="lightbox__step lightbox__step--next"
+      type="button"
+      data-lightbox-step="1"
+      aria-label="Nächstes Bild"
+    >
+      <svg
+        class="chevron"
+        aria-hidden="true"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+      >
+        <polygon points="0,0 34,50 0,100"></polygon>
+        <polygon points="24,0 66,0 100,50 66,100 24,100 58,50"></polygon>
+      </svg>
+    </button>
+  </nav>
+</dialog>
+
+<script>
+  const dialog = document.querySelector<HTMLDialogElement>("[data-lightbox]");
+  const q = <T extends HTMLElement>(sel: string) =>
+    dialog?.querySelector<T>(sel) ?? null;
+  const image = q<HTMLImageElement>("[data-lightbox-image]");
+  const nameEl = q("[data-lightbox-name]");
+  const clientEl = q("[data-lightbox-client]");
+  const countEl = q("[data-lightbox-count]");
+
+  interface Slide {
+    btn: HTMLElement;
+    thumb: HTMLImageElement;
+    src: string;
+    srcset: string;
+    width: number;
+    height: number;
+    alt: string;
+  }
+
+  if (dialog && image && nameEl && clientEl && countEl) {
+    let gallery: HTMLElement | null = null;
+    let slides: Slide[] = [];
+    let index = 0;
+    // Slide the viewer is heading for; runs ahead of `index` while a step waits
+    // for its file.
+    let target = 0;
+
+    // The viewer's image, divider and title carry fixed view-transition-names
+    // (lb-image / lb-rule / lb-title, see the CSS). Their partners on the page —
+    // the current thumbnail and the row's divider and title — borrow the same
+    // names for the snapshot on the page side, so each pair morphs into the
+    // other. Exactly one element carries a name in each snapshot.
+    type Pairs = [HTMLElement | null, string][];
+    const pagePartners = (): Pairs => [
+      [slides[index].thumb, "lb-image"],
+      [gallery!.querySelector("[data-lightbox-rule]"), "lb-rule"],
+      [gallery!.querySelector("[data-lightbox-title]"), "lb-title"],
+    ];
+    const setNames = (pairs: Pairs, on: boolean) => {
+      for (const [el, name] of pairs)
+        if (el) el.style.viewTransitionName = on ? name : "";
+    };
+
+    const readSlides = (gallery: HTMLElement): Slide[] =>
+      Array.from(
+        gallery.querySelectorAll<HTMLButtonElement>("[data-lightbox-open]"),
+      ).map((btn) => ({
+        btn,
+        thumb: btn.querySelector("img")!,
+        src: btn.dataset.src ?? "",
+        srcset: btn.dataset.srcset ?? "",
+        width: Number(btn.dataset.width) || 3,
+        height: Number(btn.dataset.height) || 2,
+        alt: btn.dataset.alt ?? "",
+      }));
+
+    const pad = (n: number) => String(n).padStart(2, "0");
+
+    // Paint slide `index` into the viewer. The thumbnail's already-decoded file
+    // sits behind the full image as a background, so the viewer is never blank
+    // while the large file is still on its way.
+    const fill = () => {
+      const s = slides[index];
+      image.style.setProperty("--ar", String(s.width / s.height));
+      image.style.backgroundImage = `url("${s.thumb.currentSrc || s.thumb.src}")`;
+      image.width = s.width;
+      image.height = s.height;
+      image.alt = s.alt;
+      image.sizes = "100vw";
+      image.srcset = s.srcset;
+      image.src = s.src;
+      countEl.textContent = `${pad(index + 1)} / ${pad(slides.length)}`;
+    };
+
+    // Give the full image a moment to decode before the new-state snapshot is
+    // taken — but never hold the transition hostage to the network.
+    const settle = () =>
+      Promise.race([
+        image.decode().catch(() => {}),
+        new Promise((r) => setTimeout(r, 250)),
+      ]);
+
+    // Run `update` inside a view transition tagged with `kind` (open / close /
+    // next / prev), which the ::view-transition rules below key on.
+    //
+    // PROTOTYPE shim: in dev, the page-transition prototype keeps `data-vt` on
+    // <html> permanently and its ::view-transition(root) rules would hijack this
+    // transition too. Step it aside for the duration. Remove along with
+    // src/components/prototype/.
+    let seq = 0;
+    let stashedVt: string | undefined;
+    const transition = (kind: string, update: () => void | Promise<void>) => {
+      if (!document.startViewTransition) {
+        void update();
+        return Promise.resolve();
+      }
+      const root = document.documentElement;
+      if (root.dataset.vt) {
+        stashedVt = root.dataset.vt;
+        delete root.dataset.vt;
+      }
+      root.dataset.lbVt = kind;
+      const id = ++seq;
+      return document.startViewTransition(update).finished.finally(() => {
+        if (id !== seq) return; // a newer transition took over; it cleans up
+        delete root.dataset.lbVt;
+        if (stashedVt) root.dataset.vt = stashedVt;
+        stashedVt = undefined;
+      });
+    };
+
+    // Load and decode a slide's large file (once per button). Resolves on error
+    // too, so a broken file never blocks stepping.
+    const loaded = new WeakMap<HTMLElement, Promise<void>>();
+    const preload = (btn: HTMLElement) => {
+      let ready = loaded.get(btn);
+      if (!ready) {
+        const img = new Image();
+        img.sizes = "100vw";
+        img.srcset = btn.dataset.srcset ?? "";
+        img.src = btn.dataset.src ?? "";
+        ready = img.decode().catch(() => {});
+        loaded.set(btn, ready);
+      }
+      return ready;
+    };
+
+    // Once a slide is up, fetch its neighbours so the next step rarely waits.
+    const warmNeighbours = () => {
+      if (!dialog.open) return;
+      for (const d of [1, -1])
+        void preload(slides[(index + d + slides.length) % slides.length].btn);
+    };
+
+    const open = (from: HTMLElement, at: number) => {
+      gallery = from;
+      slides = readSlides(from);
+      index = target = at;
+      nameEl.textContent = from.dataset.name ?? "";
+      clientEl.textContent = from.dataset.client
+        ? `for ${from.dataset.client}`
+        : "";
+      const pairs = pagePartners();
+      setNames(pairs, true);
+      void transition("open", async () => {
+        setNames(pairs, false);
+        // The lifted-out pieces leave holes in the page (see the global CSS).
+        from.dataset.lightboxActive = "";
+        slides[index].thumb.dataset.away = "";
+        fill();
+        dialog.showModal();
+        await settle();
+      }).then(warmNeighbours);
+    };
+
+    const close = () => {
+      if (!dialog.open || !gallery) return;
+      const from = gallery;
+      const thumb = slides[index].thumb;
+      const pairs = pagePartners();
+      void transition("close", () => {
+        dialog.close();
+        delete from.dataset.lightboxActive;
+        for (const s of slides) delete s.thumb.dataset.away;
+        // Stepping may have landed on a thumbnail that is scrolled out of view.
+        thumb.scrollIntoView({ block: "nearest", behavior: "instant" });
+        // Return focus to the image last viewed, not the one that opened it.
+        thumb.closest("button")?.focus({ preventScroll: true });
+        setNames(pairs, true);
+      }).finally(() => setNames(pairs, false));
+    };
+
+    // The current image stays up until the next one is fully loaded; only then
+    // does the viewer switch. Presses made while waiting add up, and the last
+    // one wins.
+    const step = (dir: number) => {
+      if (!dialog.open || slides.length < 2) return;
+      target = (target + dir + slides.length) % slides.length;
+      const to = target;
+      void preload(slides[to].btn).then(() => {
+        if (!dialog.open || to !== target || to === index) return;
+        void transition("step", async () => {
+          delete slides[index].thumb.dataset.away;
+          index = to;
+          slides[index].thumb.dataset.away = "";
+          fill();
+          await settle();
+        }).then(warmNeighbours);
+      });
+    };
+
+    document.addEventListener("click", (e) => {
+      const btn = (e.target as Element).closest<HTMLButtonElement>(
+        "[data-lightbox-open]",
+      );
+      const from = btn?.closest<HTMLElement>("[data-lightbox-gallery]");
+      if (!btn || !from) return;
+      const buttons = from.querySelectorAll("[data-lightbox-open]");
+      open(from, Array.prototype.indexOf.call(buttons, btn));
+    });
+    document.addEventListener("pointerover", (e) => {
+      const btn = (e.target as Element).closest<HTMLElement>(
+        "[data-lightbox-open]",
+      );
+      // Warm the large file as soon as the pointer shows intent.
+      if (btn) void preload(btn);
+    });
+
+    q("[data-lightbox-close]")?.addEventListener("click", close);
+    dialog
+      .querySelectorAll<HTMLElement>("[data-lightbox-step]")
+      .forEach((btn) =>
+        btn.addEventListener("click", () =>
+          step(Number(btn.dataset.lightboxStep)),
+        ),
+      );
+
+    // Esc: run our close transition instead of the dialog's instant one.
+    dialog.addEventListener("cancel", (e) => {
+      e.preventDefault();
+      close();
+    });
+    dialog.addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+      // Keep the keys to ourselves while open (the dev prototype switcher
+      // also listens for ← →).
+      e.stopPropagation();
+      step(e.key === "ArrowRight" ? 1 : -1);
+    });
+  }
+</script>
+
+<style>
+  .lightbox {
+    /* Height of the prev/next bar. */
+    --arrow-h: clamp(44px, 11vh, 120px);
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    border: 0;
+    padding: clamp(6px, 1vh, 12px) var(--page-pad) var(--page-pad);
+    background: var(--color-ink);
+    color: var(--color-paper);
+    /* Own snapshot, so it can rise over the page (see the global rules below). */
+    view-transition-name: lightbox;
+  }
+
+  .lightbox[open] {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    row-gap: var(--page-pad);
+  }
+
+  .lightbox::backdrop {
+    background: transparent;
+  }
+
+  /* Entity-row header, stretched: the hairline now runs the full width. */
+  .lightbox__bar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px 16px;
+  }
+
+  /* The hairline is its own element (not a border) so it can morph on its own:
+     the row's half-width divider stretches out to this full-width one. */
+  .lightbox__rule {
+    flex: 1 0 100%;
+    height: 1px;
+    background: currentColor;
+    view-transition-name: lb-rule;
+  }
+
+  .lightbox__meta {
+    view-transition-name: lb-title;
+  }
+
+  .lightbox__name,
+  .lightbox__client,
+  .lightbox__count,
+  .lightbox__close {
+    margin: 0;
+    font-size: clamp(1.05rem, 1.6vw, 1.4rem);
+    font-weight: 400;
+    line-height: 1.18;
+    letter-spacing: 0.005em;
+  }
+
+  .lightbox__actions {
+    display: flex;
+    gap: clamp(16px, 3vw, 48px);
+  }
+
+  .lightbox__count {
+    opacity: 0.55;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .lightbox__close {
+    border: 0;
+    padding: 0;
+    background: none;
+    color: inherit;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  .lightbox__close:hover {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.15em;
+  }
+
+  /* The image is as large as fits between bar and arrows, always at its own
+     ratio — never cropped. It is sized from --ar (set per slide) rather than
+     from the loaded file, so the box is right before the file arrives and the
+     view transition can snapshot it immediately. */
+  .lightbox__stage {
+    display: grid;
+    place-items: center;
+    min-height: 0;
+    margin: 0;
+    container-type: size;
+  }
+
+  .lightbox__image {
+    width: min(100cqw, 100cqh * var(--ar, 1.5));
+    height: auto;
+    aspect-ratio: var(--ar, 1.5);
+    background-size: 100% 100%;
+    view-transition-name: lb-image;
+  }
+
+  /* Prev/next: two arrows set edge to edge, sharing the full width. */
+  .lightbox__nav {
+    display: flex;
+    gap: 4px;
+    height: var(--arrow-h);
+  }
+
+  .lightbox__step {
+    display: flex;
+    flex: 1 1 0;
+    min-width: 0;
+    border: 0;
+    padding: 0;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    transition: flex-grow 520ms var(--ease);
+  }
+
+  /* Hovered arrow swells to 80% (4:1), the other gives up the difference. */
+  @media (hover: hover) {
+    .lightbox__step:hover {
+      flex-grow: 4;
+    }
+  }
+
+  .lightbox__step:focus-visible {
+    flex-grow: 4;
+    outline-offset: -2px;
+  }
+
+  /* Double chevron in white on the black viewer: a solid triangle plus a
+     thick chevron, parallel-edged with a constant dark gap between them, the
+     pair spanning the box edge to edge. Drawn in a 100×100 box and stretched
+     without preserving aspect, so it distorts with its button. */
+  .chevron {
+    display: block;
+    width: 100%;
+    height: 100%;
+    fill: currentColor;
+  }
+
+  .lightbox__step--prev .chevron {
+    scale: -1 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lightbox__step {
+      transition: none;
+    }
+  }
+</style>
+
+<style is:global>
+  /* Page stays put behind the viewer. */
+  html:has(.lightbox[open]) {
+    overflow: hidden;
+  }
+
+  /* The thumbnail currently shown in the viewer leaves a hole in its grid, so
+     the image reads as lifted out of the page rather than copied. */
+  .entity__image[data-away] {
+    visibility: hidden;
+  }
+
+  /* Same for the row's divider and title, which move up into the viewer. */
+  [data-lightbox-active] :is([data-lightbox-rule], [data-lightbox-title]) {
+    visibility: hidden;
+  }
+
+  /*
+   * Viewer view transitions. `data-lb-vt` is set on <html> for the duration of
+   * each one (see the script above).
+   *
+   * Stacking: viewer panel above the page (and the wordmark's own group), the
+   * travelling image above the panel.
+   */
+  html[data-lb-vt]::view-transition-group(lightbox) {
+    z-index: 10;
+  }
+
+  html[data-lb-vt]::view-transition-group(lb-image),
+  html[data-lb-vt]::view-transition-group(lb-rule),
+  html[data-lb-vt]::view-transition-group(lb-title) {
+    z-index: 11;
+    animation-duration: 560ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* Divider: stretch to the box (default snapshot sizing would thicken the
+     line in proportion as it widens). Its colour flips black → white along
+     the way. */
+  html[data-lb-vt]::view-transition-old(lb-rule),
+  html[data-lb-vt]::view-transition-new(lb-rule) {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Divider and title flip colour (black on the page, white in the viewer)
+     with a quick swap timed to the background behind them rather than a slow
+     cross-fade, so they never go dim grey mid-flight: early on open (the black
+     rises under them at once), late on close (the page shows through last). */
+  html[data-lb-vt="open"]::view-transition-old(lb-rule),
+  html[data-lb-vt="open"]::view-transition-old(lb-title) {
+    animation: lb-fade-out 140ms linear both;
+  }
+
+  html[data-lb-vt="open"]::view-transition-new(lb-rule),
+  html[data-lb-vt="open"]::view-transition-new(lb-title) {
+    animation: lb-fade-in 140ms linear both;
+  }
+
+  html[data-lb-vt="close"]::view-transition-old(lb-rule),
+  html[data-lb-vt="close"]::view-transition-old(lb-title) {
+    animation: lb-fade-out 140ms linear 360ms both;
+  }
+
+  html[data-lb-vt="close"]::view-transition-new(lb-rule),
+  html[data-lb-vt="close"]::view-transition-new(lb-title) {
+    animation: lb-fade-in 140ms linear 360ms both;
+  }
+
+  /* Snapshots cover the morphing box, so an image keeps its ratio while the
+     box changes shape — the 3:2 thumbnail crop opens up into the whole frame,
+     and stepping between a landscape and a portrait crops rather than squashes.
+     No cross-fade: only the full-size image is shown in flight (the new one
+     when opening, the old one when closing); covered into the thumbnail's box
+     it is the thumbnail, so there is nothing to blend. */
+  html[data-lb-vt]::view-transition-old(lb-image),
+  html[data-lb-vt]::view-transition-new(lb-image) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    animation: none;
+  }
+
+  html[data-lb-vt="open"]::view-transition-old(lb-image),
+  html[data-lb-vt="close"]::view-transition-new(lb-image) {
+    opacity: 0;
+  }
+
+  /* Open and close both travel bottom to top, in two layers: a black panel
+     (painted on the image pair) and the viewer itself.
+     Open: black rises over the page, then the viewer rises over the black.
+     Close: the viewer lifts off upwards to black, then the black lifts off
+     upwards to the page. The image flies over all of it. */
+  html[data-lb-vt="open"]::view-transition-image-pair(lightbox),
+  html[data-lb-vt="close"]::view-transition-image-pair(lightbox) {
+    background: var(--color-ink);
+  }
+
+  html[data-lb-vt="open"]::view-transition-image-pair(lightbox) {
+    animation: lb-rise 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  html[data-lb-vt="open"]::view-transition-new(lightbox) {
+    animation: lb-rise 420ms cubic-bezier(0.22, 1, 0.36, 1) 160ms both;
+  }
+
+  html[data-lb-vt="close"]::view-transition-old(lightbox) {
+    animation: lb-lift 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  html[data-lb-vt="close"]::view-transition-image-pair(lightbox) {
+    animation: lb-lift 420ms cubic-bezier(0.22, 1, 0.36, 1) 160ms both;
+  }
+
+  /* Step: the new image is there at once and only the frame moves, easing
+     from the old image's format to the new one with the image covering it all
+     the way (cropped, never squashed or letterboxed). The old image is dropped
+     outright rather than blended. The chrome swaps without a fade. */
+  html[data-lb-vt="step"]::view-transition-group(lightbox),
+  html[data-lb-vt="step"]::view-transition-group(lb-rule),
+  html[data-lb-vt="step"]::view-transition-group(lb-title),
+  html[data-lb-vt="step"]::view-transition-old(*),
+  html[data-lb-vt="step"]::view-transition-new(*) {
+    animation: none;
+  }
+
+  html[data-lb-vt="step"]::view-transition-group(lb-image) {
+    animation-duration: 480ms;
+  }
+
+  html[data-lb-vt="step"]::view-transition-old(lb-image) {
+    opacity: 0;
+  }
+
+  @keyframes lb-fade-out {
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes lb-fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes lb-rise {
+    from {
+      clip-path: inset(100% 0 0 0);
+    }
+    to {
+      clip-path: inset(0 0 0 0);
+    }
+  }
+
+  /* Exit upwards: the bottom edge climbs to the top. */
+  @keyframes lb-lift {
+    from {
+      clip-path: inset(0 0 0 0);
+    }
+    to {
+      clip-path: inset(0 0 100% 0);
+    }
+  }
+</style>

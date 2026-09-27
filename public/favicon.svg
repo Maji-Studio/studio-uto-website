@@ -1,4 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="Atelier Uto">
-  <rect width="64" height="64" rx="8" fill="#171717"/>
-  <path d="M17 45 29 17h6l12 28h-7l-2.2-5.8H26.1L24 45zm11.3-11.7h7.4L32 23.4z" fill="#f7f7f4"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="Studio Uto">
+  <!-- UTO Variable wordmark: wght 60, wdth 0, CONT 0; outlined and fitted for small sizes. -->
+  <rect width="64" height="64" rx="8" fill="#ffffff"/>
+  <path transform="translate(0 12.8) scale(1 0.6)" d="M12.59 52 Q10.033 52 8.08 49.827 Q6.128 47.653 5.064 43.673 Q4 39.694 4 34.4 L4 12 L9.299 12 L9.299 33.88 Q9.299 37.591 10.195 39.648 Q11.092 41.706 12.642 41.733 L12.699 41.733 Q14.249 41.733 15.145 39.676 Q16.042 37.618 16.042 33.88 L16.042 12 L21.341 12 L21.341 34.4 Q21.341 39.694 20.269 43.673 Q19.196 47.653 17.235 49.827 Q15.274 52 12.699 52 L12.59 52 Z M29.351 22.267 L23.341 22.267 L23.341 12 L40.659 12 L40.659 22.267 L34.649 22.267 L34.649 52 L29.351 52 Z M42.659 12 L60 12 L60 52 L42.659 52 Z M54.701 41.733 L54.701 22.267 L47.958 22.267 L47.958 41.733 Z" fill="#0a0a0a"/>
 </svg>

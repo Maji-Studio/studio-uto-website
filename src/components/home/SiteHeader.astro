@@ -10,7 +10,7 @@ function isNavActive(href: string) {
   return href.startsWith("/") && isRouteActive(path, href);
 }
 
-// Build-time German date; refreshed client-side so it always shows "today".
+// Build-time German date and time; refreshed client-side to stay current.
 function formatGermanDate(date: Date): string {
   const weekday = new Intl.DateTimeFormat("de-CH", { weekday: "long" }).format(
     date,
@@ -18,10 +18,16 @@ function formatGermanDate(date: Date): string {
   const month = new Intl.DateTimeFormat("de-CH", { month: "long" }).format(
     date,
   );
-  return `${weekday} ${date.getDate()}. ${month} ${date.getFullYear()}`;
+  const time = new Intl.DateTimeFormat("de-CH", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+  return `${weekday} ${date.getDate()}. ${month} ${date.getFullYear()} ${time} Uhr`;
 }
 
-const today = formatGermanDate(new Date());
+const now = new Date();
+const today = formatGermanDate(now);
 ---
 
 <header class="site-header">
@@ -34,7 +40,7 @@ const today = formatGermanDate(new Date());
     >
       STUDIO UTO
     </a>
-    <time class="chip" id="today" datetime={new Date().toISOString().slice(0, 10)}>
+    <time class="chip" id="today" datetime={now.toISOString()}>
       {today}
     </time>
   </div>
@@ -66,18 +72,27 @@ const today = formatGermanDate(new Date());
 </header>
 
 <script>
-  // Keep the date current regardless of when the page was built / cached.
+  // Keep the date and time current, including when the page stays open.
   const el = document.getElementById("today");
   if (el) {
-    const now = new Date();
-    const weekday = new Intl.DateTimeFormat("de-CH", {
-      weekday: "long",
-    }).format(now);
-    const month = new Intl.DateTimeFormat("de-CH", { month: "long" }).format(
-      now,
-    );
-    el.textContent = `${weekday} ${now.getDate()}. ${month} ${now.getFullYear()}`;
-    el.setAttribute("datetime", now.toISOString().slice(0, 10));
+    const updateClock = () => {
+      const now = new Date();
+      const weekday = new Intl.DateTimeFormat("de-CH", {
+        weekday: "long",
+      }).format(now);
+      const month = new Intl.DateTimeFormat("de-CH", { month: "long" }).format(
+        now,
+      );
+      const time = new Intl.DateTimeFormat("de-CH", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }).format(now);
+      el.textContent = `${weekday} ${now.getDate()}. ${month} ${now.getFullYear()} ${time} Uhr`;
+      el.setAttribute("datetime", now.toISOString());
+    };
+    updateClock();
+    window.setInterval(updateClock, 1000);
   }
 </script>
 

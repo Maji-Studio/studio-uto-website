@@ -1,0 +1,470 @@
+---
+import { getImage } from "astro:assets";
+
+import studio1 from "@/assets/studio/image-1.jpg";
+import studio2 from "@/assets/studio/image-2.jpg";
+
+/*
+ * PROTOTYPE — throwaway. Four page-transition variants for the cross-document
+ * View Transition, switchable via `?variant=A|B|C|D` or the floating bar
+ * (PrototypeSwitcher.astro). Dev-only: BaseLayout mounts this behind
+ * import.meta.env.DEV. Delete this folder once a variant is picked.
+ *
+ * Question: "Which page transition fits the chip hover (bottom-up fill)?"
+ *   A — Full blend: black rises from the bottom over the old page, then the new
+ *       page rises from the bottom over the black. Same clip + easing as the chip.
+ *   B — Slats: the chip hover repeated as 8 horizontal bands, stepped (no easing).
+ *   C — Invert cut: old page flashes negative and knocks left, new page lands
+ *       negative and knocked right, then snaps straight. Hard frames only.
+ *   D — Reel (A + reel): a panel carrying a low-fps, motion-blurred studio
+ *       reel rises over the old page, holds briefly, then the new page rises
+ *       over it. ~800ms. Wordmark + menu stay put and invert over the reel.
+ *
+ * The reel (D) is a real element (TransitionReel.astro) with its own
+ * view-transition-name. New-state snapshots are live, so its canvas keeps
+ * animating inside the transition. It is only displayed while a D transition
+ * runs; the renderer below starts on `pagereveal` and stops on `finished`.
+ *
+ * The ::view-transition-* pseudos live in the NEW document, so the variant has to
+ * be on <html> before its first render. That is why this is a parser-blocking
+ * inline script in <head>, reading the choice from ?variant= or sessionStorage.
+ */
+
+// Stand-in footage: the two studio stills. Swap for a real clip later.
+const reelSrcs = (
+  await Promise.all(
+    [studio2, studio1].map((src) =>
+      getImage({ src, width: 1080, format: "webp" }),
+    ),
+  )
+).map((img) => img.src);
+---
+
+<script is:inline>
+  (function () {
+    var KEY = "proto-vt";
+    var VARIANTS = ["A", "B", "C", "D"];
+    var param = (
+      new URLSearchParams(location.search).get("variant") || ""
+    ).toUpperCase();
+    var v = VARIANTS.indexOf(param) > -1 ? param : null;
+    try {
+      if (v) sessionStorage.setItem(KEY, v);
+      else v = sessionStorage.getItem(KEY);
+    } catch (e) {}
+    document.documentElement.dataset.vt = VARIANTS.indexOf(v) > -1 ? v : "D";
+  })();
+</script>
+
+{
+  /* Reel renderer for variant D. Classic inline script so the pagereveal
+    listener is in place before the event fires (module scripts run too late). */
+}
+<script is:inline define:vars={{ reelSrcs }}>
+  var FPS = 12; // presented frame rate
+  var TRAIL = 0.2; // per-rAF blend weight; lower = longer motion blur
+  var SAMPLES = 6; // shutter samples per rAF
+  var SAMPLE_ALPHA = 1 - Math.pow(1 - TRAIL, 1 / SAMPLES);
+  var SHOT = 1.2; // seconds per still before a hard cut
+  var CLOCK = "proto-reel-t"; // reel time carries over between pages
+
+  var imgs = reelSrcs.map(function (src) {
+    var img = new Image();
+    img.src = src;
+    return img;
+  });
+
+  // Slow camera drift per shot: [scale from, scale to, x from, x to] (x in % of
+  // the overflow). Alternating direction so cuts read as new angles.
+  var MOVES = [
+    [1.1, 1.4, 0.05, 0.95],
+    [1.45, 1.15, 0.95, 0.1],
+  ];
+
+  function drawCover(ctx, img, w, h, scale, xT) {
+    if (!img.complete || !img.naturalWidth) return;
+    var s = Math.max(w / img.naturalWidth, h / img.naturalHeight) * scale;
+    var dw = img.naturalWidth * s;
+    var dh = img.naturalHeight * s;
+    ctx.drawImage(img, (w - dw) * xT, (h - dh) / 2, dw, dh);
+  }
+
+  function startReel(canvas) {
+    var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    var w = (canvas.width = Math.round(innerWidth * dpr));
+    var h = (canvas.height = Math.round(innerHeight * dpr));
+    var out = canvas.getContext("2d");
+    var acc = document.createElement("canvas");
+    acc.width = w;
+    acc.height = h;
+    var ctx = acc.getContext("2d");
+
+    var offset = 0;
+    try {
+      offset = parseFloat(sessionStorage.getItem(CLOCK)) || 0;
+    } catch (e) {}
+    var t0 = performance.now();
+    var nextPresent = t0;
+    var first = true;
+    var tPrev = offset;
+    var raf = 0;
+
+    // Camera state at reel time t (seconds).
+    function shootAt(t) {
+      var shot = Math.floor(t / SHOT);
+      var p = (t % SHOT) / SHOT;
+      var move = MOVES[shot % MOVES.length];
+      drawCover(
+        ctx,
+        imgs[shot % imgs.length],
+        w,
+        h,
+        move[0] + (move[1] - move[0]) * p,
+        move[2] + (move[3] - move[2]) * p,
+      );
+    }
+
+    function frame(now) {
+      // rAF timestamps can precede t0 by a frame; never run the clock backwards.
+      var t = offset + Math.max(0, now - t0) / 1000;
+      if (first) {
+        ctx.globalAlpha = 1;
+        shootAt(t);
+      } else {
+        // Shutter: fill the gap since the last rAF with evenly spaced samples,
+        // blended into the running average. Smooth streaks, no ghost copies.
+        ctx.globalAlpha = SAMPLE_ALPHA;
+        for (var k = 1; k <= SAMPLES; k++) {
+          shootAt(tPrev + ((t - tPrev) * k) / SAMPLES);
+        }
+      }
+      tPrev = t;
+      // Present at a fixed low frame rate: the visible canvas steps.
+      if (first || now >= nextPresent) {
+        out.drawImage(acc, 0, 0);
+        nextPresent = Math.max(nextPresent + 1000 / FPS, now);
+      }
+      first = false;
+      raf = requestAnimationFrame(frame);
+    }
+    frame(t0);
+
+    return function stop() {
+      cancelAnimationFrame(raf);
+      try {
+        sessionStorage.setItem(
+          CLOCK,
+          String(offset + (performance.now() - t0) / 1000),
+        );
+      } catch (e) {}
+    };
+  }
+
+  // Old page, just before it is captured: move the menu's active chip to the
+  // destination. The old and new menu snapshots then match, so the inversion
+  // wipes over one consistent menu instead of flipping the active state.
+  window.addEventListener("pageswap", function (e) {
+    if (!e.viewTransition || !e.activation) return;
+    if (document.documentElement.dataset.vt !== "D") return;
+    var path = new URL(e.activation.entry.url).pathname;
+    document.querySelectorAll(".site-header__nav a.chip").forEach(function (a) {
+      var href = a.getAttribute("href");
+      var on =
+        href.charAt(0) === "/" &&
+        (href === "/" ? path === "/" : path.indexOf(href) === 0);
+      a.classList.toggle("chip--active", on);
+    });
+  });
+
+  window.addEventListener("pagereveal", function (e) {
+    var root = document.documentElement;
+    if (!e.viewTransition || root.dataset.vt !== "D") return;
+    var canvas = document.querySelector("[data-vt-reel] canvas");
+    var dest = document.querySelector("[data-vt-reel-dest]");
+    if (!canvas) return;
+    if (dest) dest.textContent = "→ " + document.title.split(" | ")[0];
+    root.classList.add("vt-reel-on");
+    // Where the wordmark and menu sit, so their inverted copies can be clipped
+    // to the reel's edges in viewport space (see vt-d-edges).
+    [
+      [".logo", "logo"],
+      [".site-header", "header"],
+    ].forEach(function (pair) {
+      var el = document.querySelector(pair[0]);
+      if (!el) return;
+      var r = el.getBoundingClientRect();
+      root.style.setProperty("--vt-" + pair[1] + "-top", r.top + "px");
+      root.style.setProperty("--vt-" + pair[1] + "-bottom", r.bottom + "px");
+    });
+    var stop = startReel(canvas);
+    e.viewTransition.finished.finally(function () {
+      stop();
+      root.classList.remove("vt-reel-on");
+    });
+  });
+</script>
+
+<style is:global>
+  /* Animatable band height for variant B's mask. */
+  @property --vt-p {
+    syntax: "<percentage>";
+    inherits: false;
+    initial-value: 0%;
+  }
+
+  /* Variant D: the reel's visible band in viewport space — top edge while it
+     rises, bottom inset while the new page rises over it. */
+  @property --vt-top {
+    syntax: "<length>";
+    inherits: false;
+    initial-value: 0px;
+  }
+
+  @property --vt-bottom {
+    syntax: "<length>";
+    inherits: false;
+    initial-value: 0px;
+  }
+
+  /* ── Shared ──────────────────────────────────────────────────────────── */
+
+  /* Black field behind both snapshots: whatever the clips/masks don't cover
+     shows as solid ink. */
+  html[data-vt]::view-transition-group(root) {
+    background: var(--color-ink);
+  }
+
+  /* Drop the UA plus-lighter blend: the variants control visibility themselves,
+     and overlapping opaque snapshots would add up to white. */
+  html[data-vt]::view-transition-old(root),
+  html[data-vt]::view-transition-new(root) {
+    mix-blend-mode: normal;
+  }
+
+  /* The logo stays anchored on top (its own group). Invert its ink and blend by
+     difference so it reads black on the page and white on the black field. */
+  html[data-vt]::view-transition-group(site-logo) {
+    mix-blend-mode: difference;
+  }
+
+  html[data-vt]::view-transition-image-pair(site-logo) {
+    filter: invert(1);
+  }
+
+  /* ── A — Full blend ──────────────────────────────────────────────────── */
+
+  /* Same clip wipe as the chip, but ease-in-out: the chip's ease-out is so
+     front-loaded that at viewport scale the rise is over before you see it. */
+  html[data-vt="A"]::view-transition-old(root) {
+    animation: vt-a-cover 450ms cubic-bezier(0.65, 0, 0.35, 1) both;
+  }
+
+  html[data-vt="A"]::view-transition-new(root) {
+    animation: vt-a-reveal 450ms cubic-bezier(0.65, 0, 0.35, 1) 500ms both;
+  }
+
+  /* Old page is eaten from the bottom = black rising over it. */
+  @keyframes vt-a-cover {
+    from {
+      clip-path: inset(0 0 0 0);
+    }
+    to {
+      clip-path: inset(0 0 100% 0);
+    }
+  }
+
+  /* New page rises from the bottom, exactly like the chip fill. */
+  @keyframes vt-a-reveal {
+    from {
+      clip-path: inset(100% 0 0 0);
+    }
+    to {
+      clip-path: inset(0 0 0 0);
+    }
+  }
+
+  /* ── B — Slats ───────────────────────────────────────────────────────── */
+
+  /* 8 bands (12.5% each). Inside every band the fill rises bottom-up. */
+  html[data-vt="B"]::view-transition-old(root) {
+    mask-image: repeating-linear-gradient(
+      to top,
+      transparent 0 var(--vt-p),
+      #000 var(--vt-p) 12.5%
+    );
+    animation: vt-b-band 280ms steps(4, end) both;
+  }
+
+  html[data-vt="B"]::view-transition-new(root) {
+    mask-image: repeating-linear-gradient(
+      to top,
+      #000 0 var(--vt-p),
+      transparent var(--vt-p) 12.5%
+    );
+    animation: vt-b-band 280ms steps(4, end) 380ms both;
+  }
+
+  @keyframes vt-b-band {
+    from {
+      --vt-p: 0%;
+    }
+    to {
+      --vt-p: 12.5%;
+    }
+  }
+
+  /* ── C — Invert cut ──────────────────────────────────────────────────── */
+
+  /* Three hard frames of 90ms, then the clean page. The offset exposes a black
+     gutter (group bg). */
+  html[data-vt="C"]::view-transition-old(root) {
+    animation: vt-c-out 270ms steps(1, end) both;
+  }
+
+  html[data-vt="C"]::view-transition-new(root) {
+    animation: vt-c-in 270ms steps(1, end) both;
+  }
+
+  @keyframes vt-c-out {
+    0% {
+      opacity: 1;
+      filter: invert(1);
+      translate: -3vw 0;
+    }
+    33.333%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes vt-c-in {
+    0% {
+      opacity: 0;
+    }
+    33.333% {
+      opacity: 1;
+      filter: invert(1);
+      translate: 3vw 0;
+    }
+    66.666% {
+      opacity: 1;
+      filter: invert(1);
+      translate: 0 0;
+    }
+    100% {
+      opacity: 1;
+      filter: none;
+      translate: 0 0;
+    }
+  }
+
+  /* ── D — Reel (A + reel) ───────────────────────────────────────────── */
+
+  /* 0–320 reel panel rises over the old page · 320–480 reel holds
+     · 480–800 new page rises over the reel. */
+
+  html[data-vt="D"]::view-transition-old(root) {
+    animation: vt-a-cover 320ms cubic-bezier(0.65, 0, 0.35, 1) both;
+  }
+
+  html[data-vt="D"]::view-transition-new(root) {
+    animation: vt-a-reveal 320ms cubic-bezier(0.65, 0, 0.35, 1) 480ms both;
+  }
+
+  /* Wordmark and menu stay anchored above the reel and invert exactly where the
+     reel is behind them — like the chip label as its fill passes. Old snapshot
+     = normal base; new snapshot = inverted copy clipped to the reel's band. */
+  html[data-vt="D"] .site-header {
+    view-transition-name: site-header;
+  }
+
+  html[data-vt="D"]::view-transition-group(site-logo),
+  html[data-vt="D"]::view-transition-group(site-header) {
+    z-index: 2;
+    mix-blend-mode: normal;
+  }
+
+  html[data-vt="D"]::view-transition-group(proto-switcher) {
+    z-index: 3;
+  }
+
+  html[data-vt="D"]::view-transition-image-pair(site-logo) {
+    filter: none;
+  }
+
+  html[data-vt="D"]::view-transition-old(site-logo),
+  html[data-vt="D"]::view-transition-new(site-logo),
+  html[data-vt="D"]::view-transition-old(site-header),
+  html[data-vt="D"]::view-transition-new(site-header) {
+    mix-blend-mode: normal;
+    opacity: 1;
+  }
+
+  html[data-vt="D"]::view-transition-old(site-logo),
+  html[data-vt="D"]::view-transition-old(site-header) {
+    animation: none;
+  }
+
+  html[data-vt="D"]::view-transition-new(site-logo) {
+    filter: invert(1);
+    clip-path: inset(
+      calc(var(--vt-top) - var(--vt-logo-top, 0px)) 0
+        calc(var(--vt-bottom) - 100vh + var(--vt-logo-bottom, 0px)) 0
+    );
+    animation: vt-d-edges 800ms linear both;
+  }
+
+  html[data-vt="D"]::view-transition-new(site-header) {
+    filter: invert(1);
+    clip-path: inset(
+      calc(var(--vt-top) - var(--vt-header-top, 0px)) 0
+        calc(var(--vt-bottom) - 100vh + var(--vt-header-bottom, 0px)) 0
+    );
+    animation: vt-d-edges 800ms linear both;
+  }
+
+  html[data-vt="D"]::view-transition-new(vt-reel) {
+    animation: vt-d-reel 800ms linear both;
+  }
+
+  /* No morph/fade on the reel group itself — only the clip above. */
+  html[data-vt="D"]::view-transition-group(vt-reel) {
+    animation: none;
+  }
+
+  /* Same timing as vt-d-reel, expressed as the reel's edges in px. */
+  @keyframes vt-d-edges {
+    0% {
+      --vt-top: 100vh;
+      --vt-bottom: 0px;
+      animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+    }
+    40%,
+    60% {
+      --vt-top: 0px;
+      --vt-bottom: 0px;
+      animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+    }
+    100% {
+      --vt-top: 0px;
+      --vt-bottom: 100vh;
+    }
+  }
+
+  /* One track so the rise and the later cover don't fight over clip-path.
+     40% = 320ms, 60% = 480ms of 800ms. */
+  @keyframes vt-d-reel {
+    0% {
+      clip-path: inset(100% 0 0 0);
+      animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+    }
+    40%,
+    60% {
+      clip-path: inset(0 0 0 0);
+      animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+    }
+    100% {
+      clip-path: inset(0 0 100% 0);
+    }
+  }
+</style>

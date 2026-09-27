@@ -1,42 +1,120 @@
 ---
 // Giant UTO wordmark. The variable font only carries the U/T/O glyphs.
 // Height stays fixed (font-size); the wordmark is fitted edge-to-edge by driving
-// the variable WIDTH axis as the window scales — see the fit script below.
+// each glyph's variable WIDTH axis as the window scales, and hovering shifts
+// width towards the glyph under the pointer — see the fit script below.
 const { class: className } = Astro.props;
 ---
 
 <h1 class:list={["logo", className]} aria-label="Studio Uto">
   <span aria-hidden="true">U</span><span aria-hidden="true">T</span><span
-    aria-hidden="true">O</span>
+    aria-hidden="true">O</span
+  >
 </h1>
 
 <script>
-  // Fit the wordmark edge-to-edge at a FIXED height.
-  // Primary mechanism = the font's own width axis (wdth, 0–100). When the
-  // window is wider than the widest the axis allows, we top out at wdth 100 and
-  // make up the small remainder with a horizontal scale, so it stays edge-to-edge.
+  // Fit the wordmark edge-to-edge at a FIXED height, one glyph at a time.
+  // Each glyph gets its own value on the font's width axis (wdth, 0–100); when a
+  // glyph needs to be wider or narrower than the axis allows, it tops out and
+  // makes up the remainder with its own horizontal scale.
+  //
+  // Hover focus: the wordmark's width is split into thirds. Pointer over the
+  // left third swells the U, the middle the T, the right the O. The total width
+  // never changes (the other two glyphs give up what the focused one takes), and
+  // positions between the thirds blend smoothly.
   const GAP = 4; // px gap between letters
+  const SAMPLES = 21; // width-axis samples measured per glyph (0, 5, …, 100)
+  const FOCUS = 1.6; // how strongly the focused glyph swells
+  const SPREAD = 0.16; // softness of the blend between thirds (share of the width)
+  const EASE_MS = 90; // easing time constant towards the pointer
 
   const logo = document.querySelector<HTMLElement>(".logo");
-  const home = logo?.closest<HTMLElement>(".home") ?? logo?.parentElement ?? null;
+  const home =
+    logo?.closest<HTMLElement>(".home") ?? logo?.parentElement ?? null;
+  const glyphs = logo
+    ? Array.from(logo.querySelectorAll<HTMLElement>(":scope > span"))
+    : [];
 
-  if (logo && home) {
-    // Contrast (CONT axis, 0–100) follows the cursor: sweep the pointer across
-    // the window and the thick/thin stroke contrast scrubs from even (left) to
-    // dramatic (right). It is decoupled from the edge-to-edge fit below — fit()
-    // owns the width axis + size, the pointer only re-stamps the CONT value onto
-    // the last-fitted width, so there is no per-frame relayout.
+  if (logo && home && glyphs.length) {
+    const n = glyphs.length;
+
+    // Contrast (CONT axis, 0–100) follows the cursor anywhere in the window:
+    // left = even strokes, right = dramatic contrast.
     let cont = 50; // sensible mid default until the pointer moves
-    let fittedWdth = 100; // last width-axis value chosen by fit()
     const vars = (wdth: number) => `"wght" 100, "wdth" ${wdth}, "CONT" ${cont}`;
+
+    // Hover focus state. `t` = pointer position across the wordmark (0–1),
+    // `amount` = how much focus is applied (0 = neutral, 1 = full). Both ease
+    // towards their targets.
+    let t = 0.5;
+    let tTarget = 0.5;
+    let amount = 0;
+    let amountTarget = 0;
+
+    // Measured metrics, refreshed by fit().
+    let widths: number[][] = []; // widths[g][s] = glyph g's width at sample s
+    let target = 0; // width the glyphs share (edge-to-edge, minus gaps)
+    let neutral: number[] = []; // each glyph's width with no focus
+    let left = 0; // wordmark's left edge in the viewport
+    let span = 1; // wordmark's full width
+
+    const STEP = 100 / (SAMPLES - 1);
+
+    // Glyph g's width at axis value wdth (piecewise-linear over the samples).
+    const widthAt = (g: number, wdth: number) => {
+      const f = wdth / STEP;
+      const s = Math.min(SAMPLES - 2, Math.floor(f));
+      const row = widths[g];
+      return row[s] + (row[s + 1] - row[s]) * (f - s);
+    };
+
+    // Axis value at which glyph g is w wide, clamped to the axis range.
+    const axisFor = (g: number, w: number) => {
+      const row = widths[g];
+      if (w <= row[0]) return 0;
+      if (w >= row[SAMPLES - 1]) return 100;
+      let s = 0;
+      while (row[s + 1] < w) s++;
+      const d = row[s + 1] - row[s];
+      return (s + (d > 0 ? (w - row[s]) / d : 0)) * STEP;
+    };
+
+    const totalAt = (wdth: number) =>
+      glyphs.reduce((sum, _, g) => sum + widthAt(g, wdth), 0);
+
+    // Stamp the current state onto the glyphs. Pure writes, no layout reads.
+    const render = () => {
+      if (!widths.length) return;
+
+      // Gaussian bumps centred on each third, normalised into shares.
+      const bumps = glyphs.map((_, g) =>
+        Math.exp(-(((t - (g + 0.5) / n) / SPREAD) ** 2) / 2),
+      );
+      const bumpSum = bumps.reduce((a, b) => a + b, 0) || 1;
+      const grown = neutral.map(
+        (w, g) => w * (1 + FOCUS * amount * (bumps[g] / bumpSum - 1 / n)),
+      );
+      const norm = target / grown.reduce((a, b) => a + b, 0);
+
+      glyphs.forEach((el, g) => {
+        const w = grown[g] * norm;
+        const wdth = axisFor(g, w);
+        const natural = widthAt(g, wdth);
+        const scale = w / natural;
+        const flat = Math.abs(scale - 1) < 1e-4;
+        el.style.fontVariationSettings = vars(wdth);
+        el.style.transform = flat ? "none" : `scaleX(${scale})`;
+        // Transforms don't affect layout, so pad the box to the scaled width.
+        el.style.marginRight = flat ? "0px" : `${natural * (scale - 1)}px`;
+      });
+    };
 
     // Cross-document view transitions snapshot the incoming logo at first paint —
     // before fit() (which waits on document.fonts.ready) has run. Without help the
     // transition would morph from the previous page's fitted wordmark to this
     // page's unfitted default, then snap once fit() lands. So we persist the last
-    // fitted appearance and re-apply it synchronously here, before first paint:
-    // the captured snapshot is already correct, and fit() below re-measures to the
-    // same values, so there is no visible change. Viewport is unchanged across a
+    // fitted appearance and re-apply it synchronously here, before first paint
+    // (BaseLayout does the same on `pagereveal`). Viewport is unchanged across a
     // navigation, so the restored values are exact.
     const STORE_KEY = "uto-logo-fit";
     const persist = () => {
@@ -44,113 +122,152 @@ const { class: className } = Astro.props;
         sessionStorage.setItem(
           STORE_KEY,
           JSON.stringify({
-            fvs: logo.style.fontVariationSettings,
-            gap: logo.style.columnGap,
-            transform: logo.style.transform,
             cont,
-            wdth: fittedWdth,
+            gap: logo.style.columnGap,
+            glyphs: glyphs.map((el) => ({
+              fvs: el.style.fontVariationSettings,
+              transform: el.style.transform,
+              margin: el.style.marginRight,
+            })),
           }),
         );
       } catch {}
     };
     try {
       const saved = JSON.parse(sessionStorage.getItem(STORE_KEY) ?? "null");
-      if (saved) {
+      if (saved?.glyphs?.length === n) {
         cont = saved.cont ?? cont;
-        fittedWdth = saved.wdth ?? fittedWdth;
-        logo.style.fontVariationSettings = saved.fvs;
         logo.style.columnGap = saved.gap;
-        logo.style.transform = saved.transform;
+        glyphs.forEach((el, g) => {
+          el.style.fontVariationSettings = saved.glyphs[g].fvs;
+          el.style.transform = saved.glyphs[g].transform;
+          el.style.marginRight = saved.glyphs[g].margin;
+        });
         logo.dataset.fit = "1";
       }
     } catch {}
 
-    // Width of the three glyphs (no gap, no transform) at a given wdth axis value.
-    const tripleWidth = (wdth: number) => {
-      logo.style.transform = "none";
-      logo.style.columnGap = "0px";
-      logo.style.fontVariationSettings = vars(wdth);
-      return logo.offsetWidth;
-    };
-
     const fit = () => {
       const cs = getComputedStyle(home);
-      const avail =
-        home.clientWidth -
-        parseFloat(cs.paddingLeft) -
-        parseFloat(cs.paddingRight);
-      const target = avail - 2 * GAP; // width the three glyphs should occupy
+      const box = home.getBoundingClientRect();
+      const padL = parseFloat(cs.paddingLeft);
+      const avail = home.clientWidth - padL - parseFloat(cs.paddingRight);
+      left = box.left + padL;
+      span = Math.max(1, avail);
+      target = avail - (n - 1) * GAP;
 
-      const wMin = tripleWidth(0);
-      const wMax = tripleWidth(100);
+      // Measure every glyph across the width axis, unscaled.
+      widths = glyphs.map(() => []);
+      glyphs.forEach((el) => {
+        el.style.transform = "none";
+        el.style.marginRight = "0px";
+      });
+      for (let s = 0; s < SAMPLES; s++) {
+        glyphs.forEach(
+          (el) => (el.style.fontVariationSettings = vars(s * STEP)),
+        );
+        glyphs.forEach((el, g) =>
+          widths[g].push(el.getBoundingClientRect().width),
+        );
+      }
 
+      // Neutral fit: one shared axis value (plus a shared scale when the axis
+      // alone can't reach), so without focus all three glyphs match.
       let wdth = 100;
       let scale = 1;
-
-      if (target <= wMin) {
-        // Narrower than the font's narrowest — squeeze the rest with scaleX.
+      if (target <= totalAt(0)) {
         wdth = 0;
-        scale = target / wMin;
-      } else if (target >= wMax) {
-        // Wider than the axis can reach — max the axis, stretch the remainder.
-        wdth = 100;
-        scale = target / wMax;
+        scale = target / totalAt(0);
+      } else if (target >= totalAt(100)) {
+        scale = target / totalAt(100);
       } else {
-        // The width axis alone can hit it — binary-search the value (no distortion).
         let lo = 0;
         let hi = 100;
-        for (let i = 0; i < 16; i++) {
+        for (let i = 0; i < 20; i++) {
           const mid = (lo + hi) / 2;
-          if (tripleWidth(mid) < target) lo = mid;
+          if (totalAt(mid) < target) lo = mid;
           else hi = mid;
         }
         wdth = (lo + hi) / 2;
-        scale = 1;
       }
+      neutral = glyphs.map((_, g) => widthAt(g, wdth) * scale);
 
-      const gap = GAP / scale; // pre-scale gap so the visual gap stays GAP px
-      fittedWdth = wdth; // remember it so the pointer can re-stamp contrast
-      logo.style.fontVariationSettings = vars(wdth);
-      logo.style.columnGap = `${gap}px`;
-      logo.style.transform = scale === 1 ? "none" : `scaleX(${scale})`;
+      logo.style.columnGap = `${GAP}px`;
+      render();
       logo.dataset.fit = "1";
       persist(); // so the next page can restore this exact fit before first paint
     };
 
-    let raf = 0;
-    const schedule = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(fit);
+    let fitRaf = 0;
+    const scheduleFit = () => {
+      cancelAnimationFrame(fitRaf);
+      fitRaf = requestAnimationFrame(fit);
     };
 
     if (document.fonts?.ready) document.fonts.ready.then(fit);
     else fit();
-    new ResizeObserver(schedule).observe(home);
-    window.addEventListener("resize", schedule);
+    new ResizeObserver(scheduleFit).observe(home);
+    window.addEventListener("resize", scheduleFit);
 
-    // Cursor → contrast. Horizontal pointer position across the window maps to
-    // the CONT axis (left = even strokes, right = high contrast). rAF-throttled,
-    // and only the contrast is re-stamped onto the already-fitted width.
-    let pointerX = window.innerWidth / 2;
-    let contRaf = 0;
-    const applyContrast = () => {
-      contRaf = 0;
-      const t = Math.min(1, Math.max(0, pointerX / window.innerWidth));
-      const next = Math.round(t * 100);
-      if (next === cont) return;
-      cont = next;
-      logo.style.fontVariationSettings = vars(fittedWdth);
-      persist(); // keep the stored contrast in sync for the next navigation
+    // One rAF loop eases focus towards the pointer and re-renders; it stops
+    // once everything has settled.
+    let raf = 0;
+    let last = 0;
+    const tick = (now: number) => {
+      const dt = last ? Math.min(64, now - last) : 16;
+      last = now;
+      const k = 1 - Math.exp(-dt / EASE_MS);
+      t += (tTarget - t) * k;
+      amount += (amountTarget - amount) * k;
+      const settled =
+        Math.abs(tTarget - t) < 1e-3 && Math.abs(amountTarget - amount) < 1e-3;
+      if (settled) {
+        t = tTarget;
+        amount = amountTarget;
+      }
+      render();
+      if (settled) {
+        raf = 0;
+        last = 0;
+        persist(); // keep the stored appearance in sync for the next navigation
+      } else {
+        raf = requestAnimationFrame(tick);
+      }
     };
+    const kick = () => {
+      if (!raf) raf = requestAnimationFrame(tick);
+    };
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
     window.addEventListener(
       "pointermove",
       (e) => {
         if (e.pointerType === "touch") return; // keep touch devices steady
-        pointerX = e.clientX;
-        if (!contRaf) contRaf = requestAnimationFrame(applyContrast);
+        const next = Math.round(
+          Math.min(1, Math.max(0, e.clientX / window.innerWidth)) * 100,
+        );
+        if (next !== cont) {
+          cont = next;
+          kick();
+        }
       },
       { passive: true },
     );
+
+    logo.addEventListener("pointermove", (e) => {
+      if (e.pointerType === "touch" || reduceMotion.matches) return;
+      tTarget = Math.min(1, Math.max(0, (e.clientX - left) / span));
+      // Entering from rest: start the focus where the pointer is, not where
+      // it last left, so it grows in place instead of sweeping across.
+      if (amount < 0.02) t = tTarget;
+      amountTarget = 1;
+      kick();
+    });
+    logo.addEventListener("pointerleave", () => {
+      amountTarget = 0;
+      kick();
+    });
   }
 </script>
 
@@ -187,11 +304,11 @@ const { class: className } = Astro.props;
       "CONT" 0;
     line-height: 0.8;
     letter-spacing: 0;
-    transform-origin: left center;
     user-select: none;
   }
 
   .logo span {
     display: block;
+    transform-origin: left center;
   }
 </style>

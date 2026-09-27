@@ -1,5 +1,5 @@
 ---
-import { Image } from "astro:assets";
+import { getImage, Image } from "astro:assets";
 
 import type { Impression } from "@/lib/impressionen";
 
@@ -13,26 +13,58 @@ const { entity } = Astro.props;
 const fallbackAlt = `Arbeit von ${entity.name}${
   entity.client ? ` für ${entity.client}` : ""
 }.`;
+
+// Large renditions for the full-screen viewer (Lightbox.astro), handed over
+// through data attributes on each thumbnail button.
+const full = await Promise.all(
+  entity.images.map((image) =>
+    getImage({ src: image.src, widths: [1280, 1920, 2560], format: "webp" }),
+  ),
+);
 ---
 
-<article class="entity">
+<article
+  class="entity"
+  data-lightbox-gallery
+  data-name={entity.name}
+  data-client={entity.client}
+>
   <header class="entity__meta">
-    <h2 class="entity__name">{entity.name}</h2>
-    {entity.client && <p class="entity__client">for {entity.client}</p>}
+    {
+      /* Divider and title are separate elements so the lightbox can lift them
+        into its header: the title moves up, the divider stretches full width. */
+    }
+    <span class="entity__rule" data-lightbox-rule aria-hidden="true"></span>
+    <div class="entity__title" data-lightbox-title>
+      <h2 class="entity__name">{entity.name}</h2>
+      {entity.client && <p class="entity__client">for {entity.client}</p>}
+    </div>
   </header>
 
   <ul class="entity__grid" role="list">
     {
-      entity.images.map((image) => (
+      entity.images.map((image, i) => (
         <li class="entity__cell">
-          <Image
-            class="entity__image"
-            src={image.src}
-            alt={image.alt ?? fallbackAlt}
-            widths={[240, 360, 480]}
-            sizes="(max-width: 720px) 30vw, 18vw"
-            loading="lazy"
-          />
+          <button
+            class="entity__open"
+            type="button"
+            data-lightbox-open
+            data-src={full[i].src}
+            data-srcset={full[i].srcSet.attribute}
+            data-width={image.src.width}
+            data-height={image.src.height}
+            data-alt={image.alt ?? fallbackAlt}
+            aria-label={`Bild ${i + 1} von ${entity.images.length} öffnen`}
+          >
+            <Image
+              class="entity__image"
+              src={image.src}
+              alt={image.alt ?? fallbackAlt}
+              widths={[240, 360, 480]}
+              sizes="(max-width: 720px) 30vw, 18vw"
+              loading="lazy"
+            />
+          </button>
         </li>
       ))
     }
@@ -54,9 +86,18 @@ const fallbackAlt = `Arbeit von ${entity.name}${
     align-items: start;
   }
 
-  .entity__meta {
-    border-top: 1px solid var(--color-ink);
-    padding-top: 10px;
+  .entity__rule {
+    display: block;
+    height: 1px;
+    margin-bottom: 10px;
+    background: var(--color-ink);
+  }
+
+  /* Sized to its text, exactly like the lightbox title it morphs into, so the
+     snapshot moves without being stretched. */
+  .entity__title {
+    width: max-content;
+    max-width: 100%;
   }
 
   .entity__name,
@@ -82,6 +123,19 @@ const fallbackAlt = `Arbeit von ${entity.name}${
     /* Let the cell shrink below the image's intrinsic width so the 1fr tracks
        stay equal and the column gap is never eaten by grid blowout. */
     min-width: 0;
+  }
+
+  .entity__open {
+    display: block;
+    width: 100%;
+    border: 0;
+    padding: 0;
+    background: none;
+    cursor: zoom-in;
+  }
+
+  .entity__open:focus-visible {
+    outline-offset: -2px;
   }
 
   .entity__image {
