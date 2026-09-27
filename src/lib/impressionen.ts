@@ -20,9 +20,9 @@ export interface Impression {
  * Each collaborator's images live in their own folder under
  * src/assets/impressionen/, shown in filename order.
  *
- * The current files are generated mock photography — stand-ins in the spirit of
- * each collaborator's work, used until the real shoot images land (see roadmap
- * Phase 4). Replace them by dropping real files into the same folders.
+ * Nicolas's files are generated mock photography pending real shoot images.
+ * Matthias's YVY gallery uses stills from his published film, UNI by YVY.
+ * Source, credits and frame selection: docs/content/impressionen-sources.md.
  */
 const folders = import.meta.glob<ImageMetadata>(
   "/src/assets/impressionen/*/*.{jpg,jpeg,png,webp}",
@@ -52,7 +52,20 @@ export const impressionen: Impression[] = [
   },
   {
     name: "Matthias Kappeler",
-    client: "THE NORTH FACE",
-    images: imagesFrom("matthias-kappeler"),
+    client: "YVY",
+    images: imagesFrom("matthias-kappeler-yvy").map((image, index) => ({
+      ...image,
+      alt: [
+        "UNI by YVY — Gruppenaufnahme in Schwarz-Weiss vor hellem Studiohintergrund.",
+        "UNI by YVY — Studioporträt im weissen Anzug mit schmalem Lederaccessoire.",
+        "UNI by YVY — Porträt mit erhobenem Arm, Netztop und Lederharness.",
+        "UNI by YVY — Zweiteilige Studioaufnahme mit Lederharness und schwarzem Outfit.",
+        "UNI by YVY — Porträt in schwarzer Kleidung neben einer Detailaufnahme der Lederaccessoires.",
+        "UNI by YVY — Ganzkörperaufnahme und Nahaufnahme eines schwarzen Netz- und Lederlooks.",
+        "UNI by YVY — Zwei Studioporträts mit schwarzer Kappe und Lederaccessoires.",
+        "UNI by YVY — Detailaufnahme eines schwarzen Netztops vor hellem Hintergrund.",
+        "UNI by YVY — Nahporträt neben einer Detailaufnahme von Gürtel und Ledertasche.",
+      ][index],
+    })),
   },
 ];
