@@ -7,9 +7,8 @@
  * a full-width hairline, name + client on the left, close on the right, the
  * image as large as fits below at its own ratio, and a prev/next bar along the
  * bottom. The two arrows
- * share the width like the wordmark's glyphs share theirs — hovering one swells
- * it to 80% while the other gives up the difference. Only the shafts stretch;
- * the heads keep their shape, so the pair reads as one split ←→.
+ * meet in the middle, each with its half of the width as hover area; hovering
+ * one sends it round a cylinder into the page (see src/lib/cylinder-arrow.ts).
  *
  * Opening, closing and stepping are same-document View Transitions: the clicked
  * thumbnail morphs into the full image while a black panel and then the viewer's
@@ -46,12 +45,10 @@
       data-lightbox-step="-1"
       aria-label="Vorheriges Bild"
     >
-      <span class="arrow" aria-hidden="true">
-        <span class="arrow__shaft"></span>
-        <svg class="arrow__head" viewBox="40.8 0 59.2 100">
-          <path d="M45.4 4.6 L90.81 50 L45.4 95.4"></path>
-        </svg>
-      </span>
+      <svg class="arrow" aria-hidden="true">
+        <linearGradient gradientUnits="userSpaceOnUse"></linearGradient>
+        <path></path>
+      </svg>
     </button>
     <button
       class="lightbox__step lightbox__step--next"
@@ -59,17 +56,17 @@
       data-lightbox-step="1"
       aria-label="Nächstes Bild"
     >
-      <span class="arrow" aria-hidden="true">
-        <span class="arrow__shaft"></span>
-        <svg class="arrow__head" viewBox="40.8 0 59.2 100">
-          <path d="M45.4 4.6 L90.81 50 L45.4 95.4"></path>
-        </svg>
-      </span>
+      <svg class="arrow" aria-hidden="true">
+        <linearGradient gradientUnits="userSpaceOnUse"></linearGradient>
+        <path></path>
+      </svg>
     </button>
   </nav>
 </dialog>
 
 <script>
+  import { mountCylinderArrow } from "@/lib/cylinder-arrow";
+
   const dialog = document.querySelector<HTMLDialogElement>("[data-lightbox]");
   const q = <T extends HTMLElement>(sel: string) =>
     dialog?.querySelector<T>(sel) ?? null;
@@ -226,6 +223,7 @@
 
     const close = () => {
       if (!dialog.open || !gallery) return;
+      for (const arrow of arrows.values()) arrow.reset();
       const from = gallery;
       const thumb = slides[index].thumb;
       const pairs = pagePartners();
@@ -278,13 +276,18 @@
     });
 
     q("[data-lightbox-close]")?.addEventListener("click", close);
+    const arrows = new Map<number, ReturnType<typeof mountCylinderArrow>>();
     dialog
       .querySelectorAll<HTMLElement>("[data-lightbox-step]")
-      .forEach((btn) =>
-        btn.addEventListener("click", () =>
-          step(Number(btn.dataset.lightboxStep)),
-        ),
-      );
+      .forEach((btn) => {
+        const dir = Number(btn.dataset.lightboxStep);
+        const arrow = mountCylinderArrow(btn);
+        arrows.set(dir, arrow);
+        btn.addEventListener("click", () => {
+          arrow.pulse();
+          step(dir);
+        });
+      });
 
     // Esc: run our close transition instead of the dialog's instant one.
     dialog.addEventListener("cancel", (e) => {
@@ -296,7 +299,9 @@
       // Keep the keys to ourselves while open (the dev prototype switcher
       // also listens for ← →).
       e.stopPropagation();
-      step(e.key === "ArrowRight" ? 1 : -1);
+      const dir = e.key === "ArrowRight" ? 1 : -1;
+      arrows.get(dir)?.pulse();
+      step(dir);
     });
   }
 </script>
@@ -410,10 +415,9 @@
     view-transition-name: lb-image;
   }
 
-  /* Prev/next: two arrows set edge to edge, sharing the full width. */
+  /* Prev/next: two halves of the width, the arrows meeting in the middle. */
   .lightbox__nav {
     display: flex;
-    gap: 4px;
     height: var(--arrow-h);
   }
 
@@ -426,66 +430,23 @@
     background: none;
     color: inherit;
     cursor: pointer;
-    transition: flex-grow 520ms var(--ease);
-  }
-
-  /* Hovered arrow swells to 80% (4:1), the other gives up the difference. */
-  @media (hover: hover) {
-    .lightbox__step:hover {
-      flex-grow: 4;
-    }
   }
 
   .lightbox__step:focus-visible {
-    flex-grow: 4;
     outline-offset: -2px;
   }
 
-  /* Long arrow in white on the black viewer: an open 90° head at the outer
-     edge and a shaft running the rest of the button. The head is drawn at a
-     fixed ratio (stroke 13% of its height, arms at 45°, the miter tip on the
-     box edge) and only the shaft stretches, so widening the button lengthens
-     the arrow without distorting it. Drawn pointing right; prev is mirrored. */
+  /* Geometry is drawn by the script, in px from the button's inner edge (the
+     prev arrow is mirrored); the bent part may run past the arrow's square. */
   .arrow {
-    --stroke: calc(var(--arrow-h) * 0.13);
-
-    position: relative;
-    display: flex;
-    justify-content: flex-end;
+    display: block;
     width: 100%;
     height: 100%;
+    overflow: visible;
   }
 
   .lightbox__step--prev .arrow {
     scale: -1 1;
-  }
-
-  /* Ends at the head's centreline tip, where the joint covers its corners. */
-  .arrow__shaft {
-    position: absolute;
-    top: 50%;
-    left: 0;
-    right: calc(var(--arrow-h) * 0.0919);
-    height: var(--stroke);
-    translate: 0 -50%;
-    background: currentColor;
-  }
-
-  .arrow__head {
-    position: relative;
-    flex: none;
-    height: 100%;
-    aspect-ratio: 59.2 / 100;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 13;
-    stroke-linejoin: miter;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .lightbox__step {
-      transition: none;
-    }
   }
 </style>
 
@@ -610,8 +571,10 @@
   }
 
   /* Step: the mask's width and height ease from the old image's format to
-     the new one; the new image never moves or scales — it sits centred at its
-     own final size from the first frame, cut by the mask as it opens. The old
+     the new one, and the new image covers it from the first frame. Where the
+     mask is smaller than the new image it stays put and is cut off as the
+     mask opens; where the mask is still larger (a shrinking format) the image
+     is scaled up just enough to fill it, easing down to its own size. The old
      image is gone at once (left underneath, it would show as slivers around a
      slightly smaller new one). The chrome swaps without a fade. */
   html[data-lb-vt="step"]::view-transition-group(lightbox),
@@ -625,14 +588,6 @@
   html[data-lb-vt="step"]::view-transition-group(lb-image) {
     animation-duration: 560ms;
     animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
-  }
-
-  html[data-lb-vt="step"]::view-transition-old(lb-image),
-  html[data-lb-vt="step"]::view-transition-new(lb-image) {
-    inset: 50% auto auto 50%;
-    width: auto;
-    height: auto;
-    translate: -50% -50%;
   }
 
   html[data-lb-vt="step"]::view-transition-old(lb-image) {
