@@ -354,6 +354,7 @@ html.vt-swapping a.chip:not([href="#"])::after {
   /* Cross-document view transitions aren't auto-suppressed for reduced motion,
      so collapse every snapshot animation to an instant cut. */
   ::view-transition-group(*),
+  ::view-transition-image-pair(*),
   ::view-transition-old(*),
   ::view-transition-new(*) {
     animation-duration: 0.01ms !important;

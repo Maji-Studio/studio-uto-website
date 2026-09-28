@@ -13,8 +13,8 @@
  * Opening, closing and stepping are same-document View Transitions: the clicked
  * thumbnail morphs into the full image while a black panel and then the viewer's
  * contents rise from the bottom edge (the chip hover, at page scale). Closing keeps the
- * same upward direction. Stepping waits for the next large file, then swaps it in
- * at once while the frame eases from the old format to the new one. Browsers
+ * same upward direction. Stepping waits for the next large file, then blends it
+ * in while the frame eases from the old format to the new one. Browsers
  * without View Transitions just open/close/step instantly.
  */
 ---
@@ -92,6 +92,10 @@
     // Slide the viewer is heading for; runs ahead of `index` while a step waits
     // for its file.
     let target = 0;
+    let phase: "closed" | "opening" | "open" | "closing" = "closed";
+    let session = 0;
+    let steppingSession: number | null = null;
+    const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
     // The viewer's image, divider and title carry fixed view-transition-names
     // (lb-image / lb-rule / lb-title, see the CSS). Their partners on the page —
@@ -148,34 +152,38 @@
         new Promise((r) => setTimeout(r, 250)),
       ]);
 
-    // Run `update` inside a view transition tagged with `kind` (open / close /
-    // next / prev), which the ::view-transition rules below key on.
-    //
-    // PROTOTYPE shim: in dev, the page-transition prototype keeps `data-vt` on
-    // <html> permanently and its ::view-transition(root) rules would hijack this
-    // transition too. Step it aside for the duration. Remove along with
-    // src/components/prototype/.
-    let seq = 0;
-    let stashedVt: string | undefined;
-    const transition = (kind: string, update: () => void | Promise<void>) => {
-      if (!document.startViewTransition) {
-        void update();
-        return Promise.resolve();
+    // Only one morph runs at a time. Closing can skip it; consume the ready
+    // rejection that browsers use to report a skipped snapshot animation.
+    let activeTransition: ViewTransition | null = null;
+    const transition = async (
+      kind: "open" | "close" | "step",
+      update: () => void | Promise<void>,
+    ) => {
+      if (!document.startViewTransition || reducedMotion.matches) {
+        await update();
+        return;
       }
       const root = document.documentElement;
-      if (root.dataset.vt) {
-        stashedVt = root.dataset.vt;
-        delete root.dataset.vt;
-      }
       root.dataset.lbVt = kind;
-      const id = ++seq;
-      return document.startViewTransition(update).finished.finally(() => {
-        if (id !== seq) return; // a newer transition took over; it cleans up
-        delete root.dataset.lbVt;
-        if (stashedVt) root.dataset.vt = stashedVt;
-        stashedVt = undefined;
-      });
+      const vt = document.startViewTransition(update);
+      activeTransition = vt;
+      void vt.ready.catch(() => {});
+      try {
+        await vt.finished;
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === "AbortError"))
+          throw error;
+      } finally {
+        if (activeTransition === vt) {
+          activeTransition = null;
+          delete root.dataset.lbVt;
+        }
+      }
     };
+
+    reducedMotion.addEventListener("change", () => {
+      if (reducedMotion.matches) activeTransition?.skipTransition();
+    });
 
     // Load and decode a slide's large file (once per button). Resolves on error
     // too, so a broken file never blocks stepping.
@@ -201,6 +209,9 @@
     };
 
     const open = (from: HTMLElement, at: number) => {
+      if (phase !== "closed") return;
+      phase = "opening";
+      const currentSession = ++session;
       gallery = from;
       slides = readSlides(from);
       index = target = at;
@@ -218,44 +229,81 @@
         fill();
         dialog.showModal();
         await settle();
-      }).then(warmNeighbours);
+      }).then(() => {
+        if (session !== currentSession) return;
+        phase = "open";
+        warmNeighbours();
+        void drainSteps();
+      });
     };
 
     const close = () => {
-      if (!dialog.open || !gallery) return;
+      if (phase === "closed" || phase === "closing" || !gallery) return;
+      phase = "closing";
+      ++session; // invalidate outstanding decodes and queued steps
+      target = index;
       for (const arrow of arrows.values()) arrow.reset();
       const from = gallery;
-      const thumb = slides[index].thumb;
-      const pairs = pagePartners();
-      void transition("close", () => {
-        dialog.close();
-        delete from.dataset.lightboxActive;
-        for (const s of slides) delete s.thumb.dataset.away;
-        // Stepping may have landed on a thumbnail that is scrolled out of view.
-        thumb.scrollIntoView({ block: "nearest", behavior: "instant" });
-        // Return focus to the image last viewed, not the one that opened it.
-        thumb.closest("button")?.focus({ preventScroll: true });
-        setNames(pairs, true);
-      }).finally(() => setNames(pairs, false));
+      const interrupted = activeTransition;
+      interrupted?.skipTransition();
+      void (async () => {
+        // A skipped transition still runs its DOM update. Finish that update
+        // before selecting the image that will return to the page.
+        await interrupted?.updateCallbackDone;
+        const thumb = slides[index].thumb;
+        const pairs = pagePartners();
+        try {
+          await transition("close", () => {
+            dialog.close();
+            delete from.dataset.lightboxActive;
+            for (const s of slides) delete s.thumb.dataset.away;
+            thumb.scrollIntoView({ block: "nearest", behavior: "instant" });
+            thumb.closest("button")?.focus({ preventScroll: true });
+            setNames(pairs, true);
+          });
+        } finally {
+          setNames(pairs, false);
+          phase = "closed";
+        }
+      })();
     };
 
-    // The current image stays up until the next one is fully loaded; only then
-    // does the viewer switch. Presses made while waiting add up, and the last
-    // one wins.
+    // Finish the current morph instead of repeatedly snapping to its endpoint.
+    // Every press counts; after a decode/morph, go to the latest requested image.
+    const drainSteps = async () => {
+      const currentSession = session;
+      if (phase !== "open" || steppingSession === currentSession) return;
+      steppingSession = currentSession;
+      try {
+        while (
+          session === currentSession &&
+          phase === "open" &&
+          target !== index
+        ) {
+          const to = target;
+          await preload(slides[to].btn);
+          if (session !== currentSession || phase !== "open") return;
+          if (to !== target) continue;
+          await transition("step", async () => {
+            delete slides[index].thumb.dataset.away;
+            index = to;
+            slides[index].thumb.dataset.away = "";
+            fill();
+            await settle();
+          });
+          if (session === currentSession) warmNeighbours();
+        }
+      } finally {
+        if (steppingSession === currentSession) steppingSession = null;
+      }
+    };
+
     const step = (dir: number) => {
-      if (!dialog.open || slides.length < 2) return;
+      if ((phase !== "open" && phase !== "opening") || slides.length < 2)
+        return;
       target = (target + dir + slides.length) % slides.length;
-      const to = target;
-      void preload(slides[to].btn).then(() => {
-        if (!dialog.open || to !== target || to === index) return;
-        void transition("step", async () => {
-          delete slides[index].thumb.dataset.away;
-          index = to;
-          slides[index].thumb.dataset.away = "";
-          fill();
-          await settle();
-        }).then(warmNeighbours);
-      });
+      void preload(slides[target].btn);
+      void drainSteps();
     };
 
     document.addEventListener("click", (e) => {
@@ -276,17 +324,45 @@
     });
 
     q("[data-lightbox-close]")?.addEventListener("click", close);
+
+    // Some engines retarget pointer input to the document while the modal is
+    // captured, even with pointer-events disabled on the snapshot layer. Route
+    // that input to the real control, keeping focus and the current morph intact.
+    const routeSnapshotInput = (e: MouseEvent) => {
+      if (
+        !dialog.open ||
+        (e.type === "pointerdown" && !activeTransition) ||
+        e.button !== 0 ||
+        dialog.contains(e.target as Node)
+      )
+        return;
+      e.preventDefault();
+      const button = Array.from(dialog.querySelectorAll("button")).find(
+        (button) => {
+          const rect = button.getBoundingClientRect();
+          return (
+            e.clientX >= rect.left &&
+            e.clientX < rect.right &&
+            e.clientY >= rect.top &&
+            e.clientY < rect.bottom
+          );
+        },
+      );
+      button?.focus({ preventScroll: true });
+      if (e.type === "click") button?.click();
+    };
+    document.addEventListener("pointerdown", routeSnapshotInput, {
+      capture: true,
+    });
+    document.addEventListener("click", routeSnapshotInput, { capture: true });
+
     const arrows = new Map<number, ReturnType<typeof mountCylinderArrow>>();
     dialog
       .querySelectorAll<HTMLElement>("[data-lightbox-step]")
       .forEach((btn) => {
         const dir = Number(btn.dataset.lightboxStep);
-        const arrow = mountCylinderArrow(btn);
-        arrows.set(dir, arrow);
-        btn.addEventListener("click", () => {
-          arrow.pulse();
-          step(dir);
-        });
+        arrows.set(dir, mountCylinderArrow(btn));
+        btn.addEventListener("click", () => step(dir));
       });
 
     // Esc: run our close transition instead of the dialog's instant one.
@@ -294,15 +370,53 @@
       e.preventDefault();
       close();
     });
-    dialog.addEventListener("keydown", (e) => {
+    document.addEventListener("keydown", (e) => {
+      if (!dialog.open || phase === "closing") return;
       if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
-      // Keep the keys to ourselves while open (the dev prototype switcher
-      // also listens for ← →).
+      e.preventDefault();
       e.stopPropagation();
-      const dir = e.key === "ArrowRight" ? 1 : -1;
-      arrows.get(dir)?.pulse();
-      step(dir);
+      step(e.key === "ArrowRight" ? 1 : -1);
     });
+
+    // Touch: a horizontal swipe anywhere in the viewer steps — left for next,
+    // right for previous. Touch events rather than pointer events, on the
+    // document: while a step runs, the transition overlay is under the finger
+    // and the browser would claim the drag as a pan and cancel the pointer.
+    // Cancelling a sideways touchmove keeps the drag ours.
+    let swipe: { x: number; y: number; at: number } | null = null;
+    const horizontal = (dx: number, dy: number) =>
+      Math.abs(dx) > Math.abs(dy) * 1.5;
+    document.addEventListener("touchstart", (e) => {
+      const t = e.touches[0];
+      swipe =
+        dialog.open && e.touches.length === 1
+          ? { x: t.clientX, y: t.clientY, at: e.timeStamp }
+          : null; // a second finger is a pinch
+    });
+    document.addEventListener(
+      "touchmove",
+      (e) => {
+        const t = e.touches[0];
+        if (
+          swipe &&
+          e.cancelable &&
+          horizontal(t.clientX - swipe.x, t.clientY - swipe.y)
+        )
+          e.preventDefault();
+      },
+      { passive: false },
+    );
+    document.addEventListener("touchend", (e) => {
+      if (!swipe || e.touches.length) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - swipe.x;
+      const dy = t.clientY - swipe.y;
+      const quick = e.timeStamp - swipe.at < 800;
+      swipe = null;
+      if (quick && Math.abs(dx) > 40 && horizontal(dx, dy))
+        step(dx < 0 ? 1 : -1);
+    });
+    document.addEventListener("touchcancel", () => (swipe = null));
   }
 </script>
 
@@ -456,6 +570,11 @@
     overflow: hidden;
   }
 
+  /* Horizontal drags are ours (swipe to step); pinch-zoom stays. */
+  .lightbox {
+    touch-action: pan-y pinch-zoom;
+  }
+
   /* The thumbnail currently shown in the viewer leaves a hole in its grid, so
      the image reads as lifted out of the page rather than copied. */
   .entity__image[data-away] {
@@ -465,6 +584,16 @@
   /* Same for the row's divider and title, which move up into the viewer. */
   [data-lightbox-active] :is([data-lightbox-rule], [data-lightbox-title]) {
     visibility: hidden;
+  }
+
+  /* Keep the real modal controls interactive below the snapshot layer. This
+     also prevents overlay clicks from moving focus out of the dialog. */
+  html[data-lb-vt]::view-transition,
+  html[data-lb-vt]::view-transition-group(*),
+  html[data-lb-vt]::view-transition-image-pair(*),
+  html[data-lb-vt]::view-transition-old(*),
+  html[data-lb-vt]::view-transition-new(*) {
+    pointer-events: none;
   }
 
   /*
@@ -570,13 +699,10 @@
     animation: lb-lift 420ms cubic-bezier(0.22, 1, 0.36, 1) 160ms both;
   }
 
-  /* Step: the mask's width and height ease from the old image's format to
-     the new one, and the new image covers it from the first frame. Where the
-     mask is smaller than the new image it stays put and is cut off as the
-     mask opens; where the mask is still larger (a shrinking format) the image
-     is scaled up just enough to fill it, easing down to its own size. The old
-     image is gone at once (left underneath, it would show as slivers around a
-     slightly smaller new one). The chrome swaps without a fade. */
+  /* Step: both images cover the same moving mask without distorting their
+     proportions. A short dissolve softens the change of subject while the
+     frame continues to ease into its new aspect ratio. The header and arrows
+     remain steady and live throughout. */
   html[data-lb-vt="step"]::view-transition-group(lightbox),
   html[data-lb-vt="step"]::view-transition-group(lb-rule),
   html[data-lb-vt="step"]::view-transition-group(lb-title),
@@ -586,12 +712,17 @@
   }
 
   html[data-lb-vt="step"]::view-transition-group(lb-image) {
-    animation-duration: 560ms;
-    animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+    animation-duration: 460ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   html[data-lb-vt="step"]::view-transition-old(lb-image) {
-    opacity: 0;
+    mix-blend-mode: normal;
+  }
+
+  html[data-lb-vt="step"]::view-transition-new(lb-image) {
+    mix-blend-mode: normal;
+    animation: lb-fade-in 220ms ease-out both;
   }
 
   @keyframes lb-fade-out {
