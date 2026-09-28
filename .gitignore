@@ -8,6 +8,9 @@ dist/
 .astro-parent-cache/
 coverage/
 
+# Generated imagery (image-gen runs, mockups) — kept local, not site source
+output/
+
 # Environment (keep .env.example tracked)
 .env
 .env.*
