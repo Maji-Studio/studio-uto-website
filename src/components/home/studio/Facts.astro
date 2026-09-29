@@ -1,0 +1,512 @@
+---
+// Studio fact sheet, part 2 of 4 (order in src/pages/index.astro): the facts.
+//
+// The wordmark's O, set solid at page width, opens each section. Its slot
+// counter is a window onto a studio photo: as the slab scrolls through the
+// viewport the contrast axis (CONT) opens the slot from the logo's thin slit
+// to a tall window and closes it again, while the photo pans inside. Between
+// the slabs, the facts: manifesto-size Helvetica lines with every number in a
+// chip, the block labels in grey chips. The Preise slab carries no facts of its
+// own — Tarife.astro follows it and owns #preise. Photos are picked so none
+// repeats elsewhere on the page.
+import type { ImageMetadata } from "astro";
+import { Image } from "astro:assets";
+
+import mittagslicht from "@/assets/studio/mittagslicht.jpg";
+import panorama from "@/assets/studio/panorama.jpg";
+import shootingFlaeche from "@/assets/studio/shooting-flaeche.jpg";
+import boden from "@/assets/studio/boden.jpg";
+import { sectionNav } from "@/lib/site";
+import { studioSections } from "@/lib/studio";
+
+// One photo per slab.
+const photos: Record<string, { src: ImageMetadata; alt: string }> = {
+  daten: {
+    src: panorama,
+    alt: "Panorama des Studios: Shooting-Fläche, Fensterfront und Küche.",
+  },
+  grundriss: {
+    src: shootingFlaeche,
+    alt: "Shooting-Fläche mit Blick Richtung Küche und Besprechungstisch.",
+  },
+  oeffnungszeiten: {
+    src: mittagslicht,
+    alt: "Shooting-Fläche mit natürlichem Licht am Mittag.",
+  },
+  preise: {
+    src: boden,
+    alt: "Der Betonboden in Terrazzo-Optik, von oben.",
+  },
+};
+
+// Split a line into text and chips: every number (with its unit), time span,
+// day span and price becomes a chip. A unit in brackets loses the brackets.
+const NUM = new RegExp(
+  [
+    String.raw`(?:Mo|Di|Mi|Do|Fr|Sa|So)\s*–\s*(?:Mo|Di|Mi|Do|Fr|Sa|So)`,
+    String.raw`\d{1,2}:\d{2}\s*–\s*\d{1,2}:\d{2}(?:\s*Uhr)?`,
+    String.raw`CHF\s*\d+(?:[.,]\d+)?`,
+    String.raw`\d+(?:\.\d+)?\s?m\s?×\s?\d+(?:\.\d+)?\s?m`,
+    String.raw`\(\d+\s?h\)`,
+    String.raw`\d+\s?Gb\/s`,
+    String.raw`\d+\.\s?Stock`,
+    // A bare number counts something only when a word follows it.
+    String.raw`\b\d+(?:\.\d+)?(?=\s+\p{L})`,
+  ].join("|"),
+  "gu",
+);
+type Tok = { t: string; chip: boolean };
+function tokens(line: string): Tok[] {
+  const out: Tok[] = [];
+  let at = 0;
+  for (const m of line.matchAll(NUM)) {
+    const i = m.index ?? 0;
+    if (i > at) out.push({ t: line.slice(at, i), chip: false });
+    out.push({ t: m[0].replace(/^\((.*)\)$/, "$1"), chip: true });
+    at = i + m[0].length;
+  }
+  if (at < line.length) out.push({ t: line.slice(at), chip: false });
+  return out;
+}
+
+// A term/detail pair reads as one line: the term, then each detail part as a
+// chip ("L 14 m · B 7 m · H 2.7 m" → three chips).
+const pairLine = (term: string, detail: string): Tok[] => [
+  ...tokens(term),
+  { t: " ", chip: false },
+  ...detail
+    .split(" · ")
+    .flatMap((d, i) => [
+      ...(i ? [{ t: " ", chip: false }] : []),
+      { t: d.trim(), chip: true },
+    ]),
+];
+
+const sections = studioSections.map((s) => ({
+  id: s.id,
+  title: s.title,
+  photo: photos[s.id],
+  // Prices live in Tarife.astro, right after this slab.
+  blocks: (s.id === "preise" ? [] : s.blocks).map((b) => ({
+    label: b.label,
+    lines: [
+      ...(b.pairs ?? []).map(([t, d]) => pairLine(t, d)),
+      ...(b.lines ?? []).map(tokens),
+      ...(b.text ?? []).map(tokens),
+    ],
+    links: b.links ?? [],
+    figure: b.figure,
+    note: b.note,
+  }))
+    // The photo gallery lives in the slabs' slots.
+    .filter((b) => b.lines.length || b.figure || b.links.length || b.note),
+}));
+---
+
+<section class="facts" data-facts>
+  <nav class="facts-nav" aria-label="Abschnitte">
+    {
+      sectionNav.map((item) => (
+        <a class="chip" href={item.href} data-label={item.label}>
+          {item.label}
+        </a>
+      ))
+    }
+  </nav>
+
+  {
+    sections.map((sec) => (
+      <section
+        class="facts-sec"
+        id={sec.id === "preise" ? undefined : sec.id}
+        aria-labelledby={`facts-${sec.id}`}
+      >
+        <div class="facts-slab" data-facts-slab>
+          <div class="facts-slab__window">
+            {sec.photo && (
+              <Image
+                src={sec.photo.src}
+                alt={sec.photo.alt}
+                widths={[960, 1600, 2400]}
+                sizes="70vw"
+                class="facts-slab__img"
+              />
+            )}
+          </div>
+          <span class="facts-slab__o" aria-hidden="true">
+            O
+          </span>
+          <h2 class="chip facts-slab__title" id={`facts-${sec.id}`}>
+            {sec.title}
+          </h2>
+        </div>
+
+        <div class="facts-body">
+          {sec.blocks.map((b) => (
+            <div class="facts-block">
+              {b.label && <span class="chip facts-label">{b.label}</span>}
+              <div class="facts-block__main">
+                {b.lines.length > 0 && (
+                  <ul class="facts-lines">
+                    {b.lines.map((line) => (
+                      <li>
+                        {line.map((tok) =>
+                          tok.chip ? <span class="facts-num">{tok.t}</span> : tok.t,
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {b.figure && (
+                  <Image
+                    src={b.figure.src}
+                    alt={b.figure.alt}
+                    widths={[480, 800]}
+                    sizes="(max-width: 700px) 100vw, 560px"
+                    class="facts-plan"
+                  />
+                )}
+                {b.links.length > 0 && (
+                  <div class="facts-links">
+                    {b.links.map((l) => (
+                      <a
+                        class="chip"
+                        href={l.href}
+                        data-label={l.detail}
+                        target={l.external ? "_blank" : undefined}
+                        rel={l.external ? "noopener noreferrer" : undefined}
+                      >
+                        {l.detail}
+                      </a>
+                    ))}
+                  </div>
+                )}
+                {b.note && <p class="facts-note">{b.note}</p>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    ))
+  }
+</section>
+
+<script>
+  import { BEARING, fitO } from "@/lib/o-glyph";
+
+  const root = document.querySelector<HTMLElement>("[data-facts]");
+
+  if (root) {
+    const WGHT = 100; // the wordmark's solid slab
+    const PLATEAU = 0.4; // share of the pass, around the middle, held fully open
+    const PAN = 1.5; // photo height, relative to the fully open slot
+    const px = (n: number) => `${n}px`;
+    const clamp = (v: number, lo: number, hi: number) =>
+      Math.min(hi, Math.max(lo, v));
+    // The page transition's curve, cubic-bezier(0.65, 0, 0.35, 1), near enough.
+    const ease = (t: number) =>
+      t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    interface Slab {
+      el: HTMLElement;
+      o: HTMLElement;
+      win: HTMLElement;
+      img: HTMLElement | null;
+      w: number;
+      h: number;
+      fs: number;
+      wdth: number;
+      range: number; // photo pan, px either way
+      last: string;
+    }
+
+    const slabs: Slab[] = Array.from(
+      root.querySelectorAll<HTMLElement>("[data-facts-slab]"),
+    ).map((el) => ({
+      el,
+      o: el.querySelector<HTMLElement>(".facts-slab__o")!,
+      win: el.querySelector<HTMLElement>(".facts-slab__window")!,
+      img: el.querySelector<HTMLElement>(".facts-slab__img"),
+      w: 0,
+      h: 0,
+      fs: 0,
+      wdth: 0,
+      range: 0,
+      last: "",
+    }));
+
+    // Size: the glyph fills the slab edge to edge (the wordmark's fit: width
+    // axis first, then scaleX). Only the contrast axis changes with scroll, and
+    // it moves nothing but the top and bottom strokes.
+    const measure = (s: Slab) => {
+      s.w = s.el.clientWidth;
+      s.h = s.el.clientHeight;
+      const box = { x: 0, y: 0, w: s.w, h: s.h };
+      const f = fitO(box, { wght: WGHT, cont: 0 });
+      const wide = fitO(box, { wght: WGHT, cont: 100 }).counter;
+      s.fs = f.fs;
+      s.wdth = f.wdth;
+      s.o.style.fontSize = px(f.fs);
+      s.o.style.left = px(-BEARING * f.fs * f.sx);
+      s.o.style.transform = `scaleX(${f.sx})`;
+      // Photo: as wide as the slot, taller than it ever opens, centred on it.
+      const seam = Math.min(3, f.side / 3);
+      s.win.style.left = px(f.counter.x - seam);
+      s.win.style.width = px(f.counter.w + 2 * seam);
+      const imgH = wide.h * PAN;
+      s.range = (imgH - wide.h) / 2;
+      if (s.img) {
+        s.img.style.height = px(imgH);
+        s.img.style.marginTop = px(-imgH / 2);
+      }
+      s.last = "";
+      s.el.dataset.fit = "1";
+    };
+
+    // Open (0 = the logo's slit, 1 = CONT 100) and pan (-1…1) for one slab.
+    const apply = (s: Slab, open: number, pan: number) => {
+      const cont = Math.round(open * 1000) / 10;
+      const shift = Math.round(-pan * s.range * 10) / 10;
+      const key = `${cont}:${shift}`;
+      if (key === s.last) return;
+      s.last = key;
+      const f = fitO({ x: 0, y: 0, w: s.w, h: s.h }, { wght: WGHT, cont });
+      s.o.style.fontVariationSettings = `"wght" ${WGHT}, "wdth" ${s.wdth}, "CONT" ${cont}`;
+      const seam = Math.min(3, f.cap / 3);
+      s.win.style.top = px(f.counter.y - seam);
+      s.win.style.height = px(f.counter.h + 2 * seam);
+      if (s.img) s.img.style.transform = `translateY(${shift}px)`;
+    };
+
+    let raf = 0;
+    const frame = () => {
+      raf = 0;
+      const vh = window.innerHeight;
+      // Read every slab's position first, then write.
+      const rects = slabs.map((s) => s.el.getBoundingClientRect());
+      slabs.forEach((s, i) => {
+        const r = rects[i];
+        if (reduced.matches) return apply(s, 0.5, 0);
+        // -1 as the slab enters at the bottom, 0 centred, 1 as it leaves.
+        const p = clamp(
+          (r.top + r.height / 2 - vh / 2) / (vh / 2 + r.height / 2),
+          -1,
+          1,
+        );
+        const t = clamp((1 - Math.abs(p)) / (1 - PLATEAU), 0, 1);
+        apply(s, ease(t), p);
+      });
+    };
+    const kick = () => {
+      if (!raf) raf = requestAnimationFrame(frame);
+    };
+
+    const layout = () => {
+      slabs.forEach(measure);
+      kick();
+    };
+    layout();
+    new ResizeObserver(layout).observe(root);
+    window.addEventListener("scroll", kick, { passive: true });
+    reduced.addEventListener("change", layout);
+
+    // Section nav: the chip of the section under the nav turns grey.
+    const links = Array.from(
+      root.querySelectorAll<HTMLAnchorElement>(".facts-nav a.chip"),
+    );
+    const setActive = (id: string) =>
+      links.forEach((l) => {
+        const on = l.getAttribute("href") === `#${id}`;
+        l.classList.toggle("chip--active", on);
+        if (on) l.setAttribute("aria-current", "true");
+        else l.removeAttribute("aria-current");
+      });
+    const spy = new IntersectionObserver(
+      (entries) =>
+        entries.forEach((e) => e.isIntersecting && setActive(e.target.id)),
+      { rootMargin: "-18% 0px -78% 0px" },
+    );
+    root.querySelectorAll<HTMLElement>(".facts-sec").forEach((s) => spy.observe(s));
+  }
+</script>
+
+<style>
+  .facts {
+    --gap: 4px;
+    --manifesto: clamp(1.5rem, 3.4vw, 2.4rem);
+    margin-top: clamp(36px, 8vh, 88px);
+    padding-bottom: 0;
+  }
+
+  .facts-nav {
+    position: sticky;
+    top: clamp(8px, 1.4vh, 12px);
+    z-index: 30;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--gap);
+  }
+
+  .facts-sec {
+    padding-top: clamp(48px, 9vh, 104px);
+    scroll-margin-top: 40px;
+  }
+
+  /* ── The slab ────────────────────────────────────────────────────────── */
+
+  .facts-slab {
+    position: relative;
+    height: clamp(170px, 34vw, 62vh);
+    overflow: clip;
+    background: var(--color-paper);
+  }
+
+  .facts-slab__o {
+    position: absolute;
+    top: 0;
+    z-index: 1;
+    display: block;
+    margin: 0;
+    color: var(--color-ink);
+    font-family: var(--font-logo);
+    font-weight: 900;
+    font-variation-settings:
+      "wght" 100,
+      "wdth" 100,
+      "CONT" 0;
+    line-height: 0.8;
+    white-space: nowrap;
+    transform-origin: left top;
+    user-select: none;
+    pointer-events: none;
+  }
+
+  /* Behind the glyph, a few px larger than the counter so no seam shows. */
+  .facts-slab__window {
+    position: absolute;
+    overflow: hidden;
+    background: var(--color-ink);
+  }
+
+  .facts-slab__img {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    display: block;
+    width: 100%;
+    max-width: none;
+    object-fit: cover;
+    will-change: transform;
+  }
+
+  .facts-slab:not([data-fit]) .facts-slab__o,
+  .facts-slab:not([data-fit]) .facts-slab__window {
+    visibility: hidden;
+  }
+
+  /* The title sits in the slot; the slit is never shorter than a chip. */
+  .facts-slab__title {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 2;
+    translate: -50% -50%;
+    margin: 0;
+    font-weight: 400;
+  }
+
+  /* ── The facts between the slabs ─────────────────────────────────────── */
+
+  /* The Preise slab has no facts of its own: Tarife follows right after it. */
+  .facts-body:not(:has(*)) {
+    display: none;
+  }
+
+  .facts-body {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(28px, 4.5vh, 48px);
+    padding-top: clamp(32px, 6vh, 64px);
+  }
+
+  .facts-block {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+    gap: 10px 24px;
+    align-items: start;
+  }
+
+  .facts-block__main {
+    grid-column: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    min-width: 0;
+  }
+
+  .facts-label {
+    justify-self: start;
+    max-width: 100%;
+    margin-top: 0.3em;
+    background: var(--color-chip-active);
+    color: var(--color-ink);
+    white-space: normal;
+  }
+
+  .facts-lines {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--manifesto);
+    line-height: 1.16;
+    letter-spacing: -0.01em;
+  }
+
+  .facts-lines li + li {
+    margin-top: 0.12em;
+  }
+
+  /* A chip at the line's size: black field, white label, left-aligned with
+     trailing space. */
+  .facts-num {
+    display: inline-block;
+    min-width: 2.4em;
+    margin: 0.04em 0;
+    padding: 0.05em 0.5em 0.07em 0.2em;
+    background: var(--color-chip);
+    color: var(--color-chip-label);
+    line-height: 1;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .facts-plan {
+    width: min(100%, 560px);
+    height: auto;
+  }
+
+  .facts-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--gap);
+  }
+
+  .facts-note {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.75rem;
+    line-height: 1.4;
+  }
+
+  @media (max-width: 700px) {
+    .facts-block {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .facts-block__main {
+      grid-column: 1;
+    }
+  }
+</style>

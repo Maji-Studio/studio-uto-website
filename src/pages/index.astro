@@ -1,9 +1,11 @@
 ---
 import GalleryFrame from "@/components/home/GalleryFrame.astro";
 import Logo from "@/components/home/Logo.astro";
-import SectionNav from "@/components/home/SectionNav.astro";
 import SiteHeader from "@/components/home/SiteHeader.astro";
-import StudioInfo from "@/components/home/StudioInfo.astro";
+import Facts from "@/components/home/studio/Facts.astro";
+import Intro from "@/components/home/studio/Intro.astro";
+import Outro from "@/components/home/studio/Outro.astro";
+import Tarife from "@/components/home/studio/Tarife.astro";
 import Lightbox from "@/components/impressionen/Lightbox.astro";
 import SiteFooter from "@/components/site/SiteFooter.astro";
 import BaseLayout from "@/layouts/BaseLayout.astro";
@@ -16,14 +18,19 @@ import { site } from "@/lib/site";
     <SiteHeader />
     <GalleryFrame />
 
-    {/* Studio fact sheet — the sticky section nav pins below the hero. */}
-    <SectionNav />
-    <StudioInfo />
+    {/*
+      Studio fact sheet, past the fold: the chrome intro (U → T → O), the facts
+      between the O slabs, the prices, and the reel revealing more photos.
+    */}
+    <Intro />
+    <Facts />
+    <Tarife />
+    <Outro />
 
     <SiteFooter />
   </main>
 
-  {/* Viewer for the hero's "Take a tour" and the Grundriss photos. */}
+  {/* Viewer for the hero's "Take a tour". */}
   <Lightbox />
 </BaseLayout>
 
@@ -32,7 +39,7 @@ import { site } from "@/lib/site";
     display: flex;
     flex-direction: column;
     /* The hero (logo + header + gallery) holds the first screen; the studio
-       fact sheet and its sticky nav begin just past the fold. */
+       fact sheet begins just past the fold. */
     min-height: 100dvh;
     padding: clamp(6px, 1vh, 12px) var(--page-pad) var(--page-pad);
   }

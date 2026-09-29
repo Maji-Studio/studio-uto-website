@@ -1,0 +1,665 @@
+---
+// Studio fact sheet, part 1 of 4: the intro. A raymarched liquid-chrome
+// object on white paper, lit by a procedural studio, that re-forms into the
+// wordmark's letters — U → T → O → U …, one every 10 s. Each letter is a 2D SDF
+// in the wordmark's construction (U: slab with a flat-bottomed cup and big round
+// outer bottom corners; T: full-width bar, centred stem; O: r6's rounded-rect
+// ring), extruded as a fat rounded tube; the morph blends the 2D fields with a
+// swell and a ripple so the metal flows rather than crossfades. Black fact
+// labels are scattered around and over it.
+import { Image } from "astro:assets";
+
+import fallback from "@/assets/studio/chrome-o.png";
+
+import { address } from "@/lib/site";
+import { studioSections } from "@/lib/studio";
+
+const sections = studioSections ?? [];
+const byId = (id: string) => sections.find((s) => s?.id === id);
+const allPairs = (id: string) =>
+  (byId(id)?.blocks ?? []).flatMap((b) => b?.pairs ?? []);
+const allLines = (id: string) =>
+  (byId(id)?.blocks ?? []).flatMap((b) => b?.lines ?? []);
+
+/** "L 7 m · B 7 m · H 5.7 m" → { L: "7", B: "7", H: "5.7" } */
+const dims = (s = "") =>
+  Object.fromEntries(
+    [...s.matchAll(/([LBH])\s*([\d.,]+)\s*m/g)].map((m) => [m[1], m[2]]),
+  ) as Record<string, string | undefined>;
+
+const shoot = dims(allPairs("daten").find(([t]) => /Shooting/i.test(t))?.[1]);
+const whole = dims(allPairs("daten").find(([t]) => /Ganzes/i.test(t))?.[1]);
+const datenLines = allLines("daten");
+const floorWord = datenLines.join(" ").match(/Terrazzo[-\w]*/)?.[0];
+const molton = /Molton/i.test(datenLines.join(" ")) ? "Molton, lichtdicht" : undefined;
+const styros = datenLines.join(" ").match(/(\d+)\s+Styros/)?.[1];
+const wifi = allLines("grundriss").join(" ").match(/\d+\s*Gb\/s/)?.[0];
+const hoursLine = allLines("oeffnungszeiten")[0] ?? "";
+const days = hoursLine.match(/^([A-Za-zÄÖÜäöü]+\s*–\s*[A-Za-zÄÖÜäöü]+)/)?.[1];
+const hours = hoursLine.match(/(\d{1,2}):\d{2}\s*–\s*(\d{1,2}):\d{2}/);
+const lift = allLines("oeffnungszeiten").some((l) => /Warenlift/.test(l));
+const prices = allPairs("preise");
+const dayPrice = prices.find(([t]) => /Ganzer/i.test(t))?.[1];
+const halfPrice = prices.find(([t]) => /Halber/i.test(t))?.[1];
+
+// Deterministic scatter: x/y in % of the stage (desktop), mx/my for phones,
+// z = parallax depth. A few deliberately sit on the object.
+const factDefs: [string | undefined, string, number, number, number, number, number][] = [
+  [shoot.L && shoot.B && `${shoot.L} × ${shoot.B} m Shooting-Fläche`, "daten", 13, 18, 4, 12, 0.6],
+  [shoot.H && `H ${shoot.H} m`, "daten", 71, 13, 70, 9, -0.4],
+  [floorWord, "daten", 40, 39, 30, 40, 1],
+  [wifi, "grundriss", 79, 52, 72, 30, 0.5],
+  [days && hours ? `${days} ${hours[1]}–${hours[2]}` : undefined, "oeffnungszeiten", 8, 58, 4, 70, -0.7],
+  [dayPrice && `${dayPrice} / Tag`, "preise", 57, 71, 48, 58, 1],
+  [whole.L && whole.B && `${whole.L} × ${whole.B} m gesamt`, "daten", 23, 81, 8, 86, -0.3],
+  [molton, "daten", 84, 31, 60, 78, 0.8],
+  [styros && `${styros} Styros s/w`, "daten", 61, 36, 58, 46, -1],
+  [lift ? "Warenlift, 3. Stock" : undefined, "oeffnungszeiten", 30, 62, 12, 54, 0.9],
+  [address?.street, "oeffnungszeiten", 75, 85, 52, 91, -0.6],
+  [halfPrice && `${halfPrice} / ½ Tag`, "preise", 17, 40, 6, 24, 0.3],
+];
+const facts = factDefs
+  .filter((f) => !!f[0])
+  .map(([label, id, x, y, mx, my, z], i) => ({
+    label: label as string,
+    id,
+    x,
+    y,
+    mx,
+    my,
+    z,
+    glitch: i === 2 || i === 8,
+  }));
+
+// Fallback still for no-WebGL: the generated chrome O, if it exists.
+---
+
+<section class="intro" aria-label="Studio Uto in Zahlen">
+  <div class="intro__stage" data-intro-stage>
+    <div class="intro__object">
+      {
+        fallback && (
+          <Image
+            class="intro__fallback"
+            src={fallback}
+            alt=""
+            widths={[480, 800]}
+            sizes="(max-width: 720px) 80vw, 50vw"
+            loading="lazy"
+          />
+        )
+      }
+      <canvas class="intro__canvas" data-intro-canvas aria-hidden="true"></canvas>
+    </div>
+
+    <ul class="intro__facts" role="list">
+      {
+        facts.map((f) => (
+          <li
+            class:list={["intro__fact", { "intro__fact--glitch": f.glitch }]}
+            style={`--x:${f.x}%;--y:${f.y}%;--mx:${f.mx}%;--my:${f.my}%;--z:${f.z}`}
+          >
+            <a href={`#${f.id}`}>{f.label}</a>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
+
+<style>
+  .intro {
+    --ink: #0a0a0a;
+    margin-top: clamp(24px, 4vh, 56px);
+  }
+
+  .intro__stage {
+    position: relative;
+    height: clamp(620px, 100svh, 1100px);
+    margin-inline: calc(-1 * var(--page-pad));
+    overflow: clip;
+  }
+
+  .intro__object {
+    position: absolute;
+    inset: 50% auto auto 50%;
+    width: min(96vw, 96svh, 1000px);
+    aspect-ratio: 1;
+    translate: -50% -50%;
+  }
+
+  .intro__canvas,
+  .intro__fallback {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .intro__fallback {
+    object-fit: contain;
+    padding: 18%;
+    filter: grayscale(1) contrast(1.1);
+    mix-blend-mode: multiply;
+  }
+
+  .intro__canvas {
+    opacity: 0;
+    transition: opacity 900ms ease;
+  }
+
+  .intro--gl .intro__canvas {
+    opacity: 1;
+  }
+
+  .intro--gl .intro__fallback {
+    display: none;
+  }
+
+  .intro__facts {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    pointer-events: none;
+  }
+
+  .intro__fact {
+    position: absolute;
+    left: var(--x);
+    top: var(--y);
+    translate: calc(var(--px, 0) * var(--z) * 14px) calc(var(--py, 0) * var(--z) * 10px);
+    pointer-events: auto;
+  }
+
+  .intro__fact a {
+    display: block;
+    padding: 6px 10px 5px;
+    background: var(--ink);
+    color: #fff;
+    font-size: 0.75rem;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    transition:
+      background-color 140ms ease,
+      color 140ms ease;
+  }
+
+  .intro__fact a:hover {
+    background: #eeeeee;
+    color: var(--ink);
+  }
+
+  /* r6's glitch: a strip of checker that bites into the label's edge. */
+  .intro__fact--glitch a {
+    position: relative;
+  }
+
+  .intro__fact--glitch a::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -12px;
+    width: 12px;
+    background: repeating-conic-gradient(var(--ink) 0 25%, #fff 0 50%) 0 0 / 6px 6px;
+  }
+
+  @media (max-width: 720px) {
+    .intro__stage {
+      height: max(560px, 80svh);
+    }
+
+    .intro__object {
+      width: min(118vw, 70svh);
+    }
+
+    .intro__fact {
+      left: var(--mx);
+      top: var(--my);
+    }
+
+    .intro__fact a {
+      padding: 5px 8px 4px;
+      font-size: 0.6875rem;
+    }
+  }
+</style>
+
+<script>
+  const root = document.querySelector<HTMLElement>(".intro");
+  const canvas = root?.querySelector<HTMLCanvasElement>("[data-intro-canvas]");
+  const stage = root?.querySelector<HTMLElement>("[data-intro-stage]");
+
+  const VERT = `
+    attribute vec2 aPos;
+    void main() { gl_Position = vec4(aPos, 0.0, 1.0); }
+  `;
+
+  const FRAG = `
+    precision highp float;
+    uniform vec2 uRes;
+    uniform float uTime;
+    uniform vec2 uTilt;
+    uniform vec2 uGlyph;   // from / to letter: 0 = U, 1 = T, 2 = O
+    uniform float uMix;    // 0 … 1 (a touch beyond while it settles)
+    uniform float uFlow;   // 0 … 1 … 0 over a morph: swell + ripple
+
+    #define PI 3.14159265
+
+    mat2 rot(float a) { float c = cos(a), s = sin(a); return mat2(c, -s, s, c); }
+
+    float smin(float a, float b, float k) {
+      float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+      return mix(b, a, h) - k * h * (1.0 - h);
+    }
+
+    float smax(float a, float b, float k) { return -smin(-a, -b, k); }
+
+    float sdRoundRect(vec2 p, vec2 b, float r) {
+      vec2 q = abs(p) - b + r;
+      return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+    }
+
+    // Rounded box with a radius per corner: r = (top-right, bottom-right, top-left, bottom-left).
+    float sdRoundBox(vec2 p, vec2 b, vec4 r) {
+      r.xy = (p.x > 0.0) ? r.xy : r.zw;
+      r.x = (p.y > 0.0) ? r.x : r.y;
+      vec2 q = abs(p) - b + r.x;
+      return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r.x;
+    }
+
+    // Per-frame shape state.
+    mat2 gRy; mat2 gRx;
+    vec2 gHs;     // the O's path half-size (breathes like the wdth axis)
+    float gRad;   // the O's path corner radius
+    float gT;     // time
+
+    // The wordmark letters as filled 2D fields, all in one box: the O's outer
+    // extent, so the three share the wide proportions of the logo's glyphs.
+    float glyphU(vec2 p, vec2 B) {
+      float side = 0.48;
+      float foot = 0.48;
+      float outer = sdRoundBox(p, B, vec4(0.16, min(0.84, B.y), 0.16, min(0.84, B.y)));
+      // flat-bottomed cup, open at the top
+      float cupB = -B.y + foot;
+      vec2 cc = vec2(0.0, 0.5 * (cupB + B.y + 1.0));
+      vec2 ch = vec2(B.x - side, 0.5 * (B.y + 1.0 - cupB));
+      float cup = sdRoundBox(p - cc, ch, vec4(0.12));
+      return smax(outer, -cup, 0.06);
+    }
+
+    float glyphT(vec2 p, vec2 B) {
+      float barH = 0.5;
+      float stemW = 0.26;   // half-width
+      float bar = sdRoundRect(p - vec2(0.0, B.y - 0.5 * barH), vec2(B.x, 0.5 * barH), 0.16);
+      // the stem runs up into the bar, so the union's field stays deep at the joint
+      float stemTop = B.y - 0.5 * barH;
+      float stem = sdRoundRect(p - vec2(0.0, 0.5 * (stemTop - B.y)), vec2(stemW, 0.5 * (stemTop + B.y)), 0.16);
+      return smin(bar, stem, 0.14);
+    }
+
+    float glyphO(vec2 p, float tube) {
+      // soft abs: identical ring, but no crease inside to surface mid-morph
+      float s = sdRoundRect(p, gHs, gRad);
+      return sqrt(s * s + 0.0009) - tube;
+    }
+
+    float glyph(float id, vec2 p, vec2 B, float tube) {
+      if (id < 0.5) return glyphU(p, B);
+      if (id < 1.5) return glyphT(p, B);
+      return glyphO(p, tube);
+    }
+
+    // Extrude the blended 2D field as a fat liquid tube: r6's twisted elliptical
+    // cross-section with slow ripples; wide strokes bulge a little like a pillow.
+    // r6's twisted elliptical cross-section.
+    float xsec(vec2 cs, float tube, float ecc) {
+      cs.y *= ecc;
+      return (length(cs) - tube) / ecc;
+    }
+
+    float mapGlyph(vec3 p) {
+      float t = gT;
+      float ang = atan(p.y, p.x);
+      float e = clamp(uMix, 0.0, 1.0);
+      // Share of the O in the current shape. The O keeps r6's twist and
+      // ripples, which run around the centre; U and T use planar ones, since
+      // the T's stem runs through the centre where the angle is singular.
+      float wO = (uGlyph.x > 1.5 ? 1.0 - e : 0.0) + (uGlyph.y > 1.5 ? e : 0.0);
+      // (faded out right at the centre, which the O itself never reaches)
+      float fade = smoothstep(0.05, 0.4, length(p.xy));
+      float rippleO = fade * 0.022 * sin(3.0 * ang + t * 0.8) + fade * 0.014 * sin(5.0 * ang - t * 1.1 + 1.7);
+      float rippleL = 0.02 * sin(2.7 * p.x + 1.3 * p.y + t * 0.8) + 0.013 * sin(4.3 * p.y - 1.9 * p.x - t * 1.1 + 1.7);
+      float ripple = mix(rippleL, rippleO, wO);
+      // U and T run a slightly fatter tube than r6's O, so their wider
+      // strokes stay round instead of going flat-faced.
+      float tA = (uGlyph.x > 1.5 ? 0.2 : 0.24) + ripple;
+      float tB = (uGlyph.y > 1.5 ? 0.2 : 0.24) + ripple;
+      float tube = mix(tA, tB, e);
+      vec2 B = gHs + 0.2;
+
+      float d2 = glyph(uGlyph.x, p.xy, B, tA);
+      if (uGlyph.y != uGlyph.x) {
+        float dB = glyph(uGlyph.y, p.xy, B, tB);
+        // blend the letters' fields; mid-morph, lean on their union so the
+        // metal stays one connected mass while it flows into the new shape
+        d2 = mix(mix(d2, dB, uMix), smin(d2, dB, 0.3), 0.4 * uFlow);
+      }
+      // mid-morph: the metal swells a little and ripples as it re-forms
+      d2 -= uFlow * (0.07 + 0.04 * sin(7.0 * p.x - t * 5.0) * sin(6.0 * p.y + t * 4.0));
+
+      vec2 q = vec2(max(d2 + tube, 0.0), p.z);
+      float d = xsec(rot(ang + t * 0.3) * q, tube, mix(1.0, 1.3, fade));
+      if (wO < 1.0) {
+        float dL = xsec(rot(t * 0.3 + 1.5 * p.x + 0.8 * p.y) * q, tube, 1.3);
+        d = mix(dL, d, wO);
+      }
+      return d;
+    }
+
+    float map(vec3 p) {
+      p.xz = gRy * p.xz;
+      p.yz = gRx * p.yz;
+      return mapGlyph(p);
+    }
+
+    vec3 calcNormal(vec3 p) {
+      vec2 e = vec2(0.0015, -0.0015);
+      return normalize(
+        e.xyy * map(p + e.xyy) + e.yyx * map(p + e.yyx) +
+        e.yxy * map(p + e.yxy) + e.xxx * map(p + e.xxx));
+    }
+
+    float angDiff(float a, float b) { return mod(a - b + PI, 2.0 * PI) - PI; }
+
+    // Soft rectangle on the sphere of directions (azimuth / elevation).
+    float panel(float az, float el, float az0, float hw, float el0, float el1, float soft) {
+      float x = abs(angDiff(az, az0));
+      return smoothstep(hw + soft, hw - soft, x) *
+             smoothstep(el0 - soft, el0 + soft, el) *
+             smoothstep(el1 + soft, el1 - soft, el);
+    }
+
+    // A procedural photo studio: white cyclorama ahead, concrete floor,
+    // dim room behind the camera, softbox strips, black-sided styros and the
+    // tall steel-framed windows.
+    vec3 env(vec3 d) {
+      float az = atan(d.x, -d.z);
+      float el = asin(clamp(d.y, -1.0, 1.0));
+      float ab = abs(az);
+
+      vec3 room = vec3(0.26, 0.265, 0.28);
+      vec3 cyc = vec3(0.97, 0.972, 0.975);
+      float wall = smoothstep(1.95, 1.45, ab) * (1.0 - smoothstep(0.75, 1.05, el));
+      vec3 c = mix(room, cyc, wall);
+      vec3 floorC = mix(vec3(0.05, 0.05, 0.055), vec3(0.46, 0.46, 0.47), smoothstep(-1.3, -0.02, el));
+      c = mix(floorC, c, smoothstep(-0.025, 0.005, el));
+
+      c += vec3(2.3, 2.3, 2.28) * panel(az, el, PI, 0.75, 0.02, 0.7, 0.07);
+      c += vec3(2.7, 2.68, 2.6) * panel(az, el, -1.5, 0.07, -0.12, 0.85, 0.018);
+      c += vec3(2.1, 2.12, 2.2) * panel(az, el, 2.35, 0.05, -0.05, 0.78, 0.018);
+      c += vec3(1.6) * smoothstep(1.02, 1.1, el) * smoothstep(0.35, 0.25, abs(d.x));
+
+      c *= 1.0 - 0.95 * panel(az, el, -0.78, 0.15, -0.3, 0.52, 0.015);
+      c *= 1.0 - 0.95 * panel(az, el, 0.92, 0.11, -0.3, 0.48, 0.015);
+      c *= 1.0 - 0.9 * panel(az, el, -2.45, 0.2, -0.3, 0.5, 0.03);
+
+      float wx = angDiff(az, 1.62);
+      float win = panel(az, el, 1.62, 0.3, 0.02, 0.92, 0.008);
+      vec2 g = vec2(wx / 0.15, (el - 0.02) / 0.225);
+      vec2 f = abs(fract(g) - 0.5);
+      float bars = smoothstep(0.36, 0.42, max(f.x, f.y));
+      c = mix(c, mix(vec3(2.3, 2.36, 2.5), vec3(0.2), bars), win);
+      return c;
+    }
+
+    vec3 aces(vec3 x) {
+      return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
+    }
+
+    void main() {
+      vec2 uv = (gl_FragCoord.xy - 0.5 * uRes) / uRes.y;
+      float t = uTime;
+      gT = t;
+      gRy = rot(0.62 * sin(t * 0.16) + uTilt.x * 0.4);
+      gRx = rot(0.22 + 0.14 * sin(t * 0.11 + 0.7) - uTilt.y * 0.3);
+      float breath = sin(t * 0.29);
+      gHs = vec2(1.12 + 0.2 * breath, 0.66 - 0.05 * breath);
+      gRad = 0.46 + 0.08 * sin(t * 0.21 + 1.3);
+
+      vec3 ro = vec3(0.0, 0.45, 5.4);
+      vec3 ta = vec3(0.0, 0.0, 0.0);
+      vec3 ww = normalize(ta - ro);
+      vec3 uu = normalize(cross(ww, vec3(0.0, 1.0, 0.0)));
+      vec3 vv = cross(uu, ww);
+      vec3 rd = normalize(uv.x * uu + uv.y * vv + 1.5 * ww);
+
+      float px = 1.0 / (uRes.y * 1.5);
+
+      float b = dot(ro, rd);
+      float cc = dot(ro, ro) - 2.0 * 2.0;
+      float disc = b * b - cc;
+
+      float tHit = -1.0;
+      float minD = 1e9; float minT = 0.0;
+      if (disc > 0.0) {
+        float tt = -b - sqrt(disc);
+        float tEnd = -b + sqrt(disc);
+        for (int i = 0; i < 160; i++) {
+          vec3 p = ro + rd * tt;
+          float d = map(p);
+          if (d < minD) { minD = d; minT = tt; }
+          if (d < 0.0008 * tt) { tHit = tt; break; }
+          tt += d * 0.6;
+          if (tt > tEnd) break;
+        }
+      }
+
+      if (tHit > 0.0) {
+        vec3 p = ro + rd * tHit;
+        vec3 n = calcNormal(p);
+        vec3 r = reflect(rd, n);
+        float cosT = clamp(dot(n, -rd), 0.0, 1.0);
+
+        vec3 F0 = vec3(0.9, 0.91, 0.93);
+        vec3 fres = F0 + (1.0 - F0) * pow(1.0 - cosT, 5.0);
+        vec3 col = env(r);
+
+        float t2 = 0.04;
+        for (int i = 0; i < 56; i++) {
+          float d = map(p + r * t2);
+          if (d < 0.0015 * (1.0 + t2)) {
+            vec3 p2 = p + r * t2;
+            vec3 n2 = calcNormal(p2);
+            col = env(reflect(r, n2)) * F0 * 0.85;
+            break;
+          }
+          t2 += max(d * 0.7, 0.002);
+          if (t2 > 4.0) break;
+        }
+        col *= fres;
+
+        float graze = pow(1.0 - cosT, 1.7);
+        float thick = 0.55 + 0.25 * sin(dot(p, vec3(1.3, 0.7, -0.9)) + t * 0.2);
+        vec3 film = 0.5 + 0.5 * cos(2.0 * PI * (thick * 2.4 / (0.35 + cosT) + vec3(0.0, 0.33, 0.67)));
+        col *= mix(vec3(1.0), 0.35 + 1.15 * film, 0.7 * graze);
+
+        col = aces(col * 1.08);
+        col = pow(col, vec3(1.0 / 2.2));
+        gl_FragColor = vec4(col, 1.0);
+        return;
+      }
+
+      float a = 0.0;
+      vec3 col = vec3(0.0);
+      if (rd.y < 0.0) {
+        float tp = (-1.25 - ro.y) / rd.y;
+        vec3 q = ro + rd * tp;
+        float sh = exp(-(q.x * q.x) / 0.9 - (q.z * q.z) / 0.1);
+        a = 0.13 * sh;
+      }
+      float cover = 1.0 - smoothstep(0.0, px * minT, minD);
+      if (cover > 0.0) {
+        col = mix(col, vec3(0.5, 0.51, 0.53), cover);
+        a = mix(a, 1.0, cover);
+      }
+      gl_FragColor = vec4(col * a, a);
+    }
+  `;
+
+  // The house reel easing, cubic-bezier(0.65, 0, 0.35, 1), as a function of x.
+  const reelEase = (x: number) => {
+    const bez = (t: number, a: number, b: number) =>
+      3 * a * t * (1 - t) ** 2 + 3 * b * t * t * (1 - t) + t ** 3;
+    let lo = 0;
+    let hi = 1;
+    for (let i = 0; i < 24; i++) {
+      const mid = (lo + hi) / 2;
+      if (bez(mid, 0.65, 0.35) < x) lo = mid;
+      else hi = mid;
+    }
+    return bez((lo + hi) / 2, 0, 1);
+  };
+
+  // U → T → O → U …: each letter holds 8.5 s, then 1.5 s of liquid morph;
+  // after landing, the shape overshoots a hair and settles.
+  const HOLD = 8.5;
+  const MORPH = 1.5;
+  const SLOT = HOLD + MORPH;
+  const morphState = (clock: number) => {
+    const c = ((clock % (3 * SLOT)) + 3 * SLOT) % (3 * SLOT);
+    const slot = Math.floor(c / SLOT);
+    const local = c - slot * SLOT;
+    if (local >= HOLD) {
+      const p = (local - HOLD) / MORPH;
+      return { from: slot, to: (slot + 1) % 3, mix: reelEase(p), flow: Math.sin(Math.PI * p) };
+    }
+    const settle = 0.07 * Math.exp(-3.2 * local) * Math.sin(9 * local);
+    return { from: (slot + 2) % 3, to: slot, mix: 1 + settle, flow: 0 };
+  };
+
+  function start() {
+    if (!root || !canvas || !stage) return;
+    const gl = canvas.getContext("webgl", { premultipliedAlpha: true, antialias: false, alpha: true });
+    if (!gl) return;
+
+    const compile = (type: number, src: string) => {
+      const s = gl.createShader(type)!;
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+        console.warn("[intro]", gl.getShaderInfoLog(s));
+        return null;
+      }
+      return s;
+    };
+    const vs = compile(gl.VERTEX_SHADER, VERT);
+    const fs = compile(gl.FRAGMENT_SHADER, FRAG);
+    if (!vs || !fs) return;
+    const prog = gl.createProgram()!;
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return;
+    gl.useProgram(prog);
+
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(prog, "aPos");
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+    const uRes = gl.getUniformLocation(prog, "uRes");
+    const uTime = gl.getUniformLocation(prog, "uTime");
+    const uTilt = gl.getUniformLocation(prog, "uTilt");
+    const uGlyph = gl.getUniformLocation(prog, "uGlyph");
+    const uMix = gl.getUniformLocation(prog, "uMix");
+    const uFlow = gl.getUniformLocation(prog, "uFlow");
+
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+    const resize = () => {
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      // Cap the raymarch at ~2.4 MP.
+      const scale = Math.min(dpr, Math.sqrt(2.4e6 / Math.max(1, w * h)));
+      canvas.width = Math.max(1, Math.round(w * scale));
+      canvas.height = Math.max(1, Math.round(h * scale));
+      gl.viewport(0, 0, canvas.width, canvas.height);
+    };
+    resize();
+
+    // Pointer tilt, eased.
+    const tilt = { x: 0, y: 0, tx: 0, ty: 0 };
+    stage.addEventListener("pointermove", (e) => {
+      const r = stage.getBoundingClientRect();
+      tilt.tx = ((e.clientX - r.left) / r.width) * 2 - 1;
+      tilt.ty = ((e.clientY - r.top) / r.height) * 2 - 1;
+    });
+    stage.addEventListener("pointerleave", () => {
+      tilt.tx = 0;
+      tilt.ty = 0;
+    });
+
+    let running = false;
+    let raf = 0;
+    let last = performance.now();
+    let time = 14; // a composed starting pose
+    let clock = 2; // letter clock: starts on the U, past its settle
+
+    const draw = () => {
+      // Reduced motion: hold the O.
+      const m = reduced ? { from: 2, to: 2, mix: 0, flow: 0 } : morphState(clock);
+      gl.uniform2f(uRes, canvas.width, canvas.height);
+      gl.uniform1f(uTime, time);
+      gl.uniform2f(uTilt, tilt.x, tilt.y);
+      gl.uniform2f(uGlyph, m.from, m.to);
+      gl.uniform1f(uMix, m.mix);
+      gl.uniform1f(uFlow, m.flow);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    };
+
+    const frame = (now: number) => {
+      const elapsed = (now - last) / 1000;
+      const dt = Math.min(0.05, elapsed);
+      last = now;
+      time += dt;
+      // The letter clock follows wall time so the 10 s cadence holds even when
+      // frames are slow (the wobble clock above stays capped for smoothness).
+      clock += Math.min(1, elapsed);
+      tilt.x += (tilt.tx - tilt.x) * 0.05;
+      tilt.y += (tilt.ty - tilt.y) * 0.05;
+      stage.style.setProperty("--px", tilt.x.toFixed(3));
+      stage.style.setProperty("--py", tilt.y.toFixed(3));
+      draw();
+      if (running) raf = requestAnimationFrame(frame);
+    };
+
+    new ResizeObserver(() => {
+      resize();
+      if (!running) draw();
+    }).observe(canvas);
+
+    draw();
+    root.classList.add("intro--gl");
+    if (reduced) return;
+
+    new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !running) {
+        running = true;
+        last = performance.now();
+        raf = requestAnimationFrame(frame);
+      } else if (!entry.isIntersecting && running) {
+        running = false;
+        cancelAnimationFrame(raf);
+      }
+    }).observe(canvas);
+  }
+
+  start();
+</script>

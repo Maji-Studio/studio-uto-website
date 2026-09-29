@@ -1,0 +1,352 @@
+---
+// Studio fact sheet, part 4 of 4: the page-transition reel, used once at the
+// end: scrolling past the prices a black panel rises bottom-up carrying
+// the canvas photo reel (12 fps, motion trail, hard cuts), then a paper "page"
+// rises over it revealing a gapless photo grid (/impressionen/ grammar).
+// Photos here appear nowhere else on the homepage.
+import { Image, getImage } from "astro:assets";
+
+const mods = import.meta.glob<{ default: ImageMetadata }>(
+  "/src/assets/impressionen/**/*.jpg",
+  { eager: true },
+);
+const pick = (name: string) => {
+  const key = Object.keys(mods).find((k) => k.endsWith(`/${name}.jpg`));
+  return key ? mods[key].default : undefined;
+};
+const list = (names: string[]) =>
+  names.flatMap((n) => {
+    const src = pick(n);
+    return src ? [{ name: n, src }] : [];
+  });
+
+// Reel: six landscape frames by Matthias Kappeler.
+const reelPhotos = list(["mk-01", "mk-02", "mk-03", "mk-05", "mk-06", "yvy-08"]);
+// Grid: twelve more, none shared with the reel, Body (studio photos) or Tarife
+// (nb-03, nb-05, yvy-02, yvy-06).
+const gridPhotos = list([
+  "nb-01", "nb-02", "yvy-01", "mk-07",
+  "nb-04", "yvy-03", "yvy-04", "mk-09",
+  "nb-06", "yvy-05", "yvy-07", "yvy-09",
+]);
+const byline = (n: string) =>
+  n.startsWith("nb") ? "Nicolas Burri" : "Matthias Kappeler";
+
+const reelSrcs = (
+  await Promise.all(
+    reelPhotos.map((p) => getImage({ src: p.src, width: 960, format: "webp" })),
+  )
+).map((img) => img.src);
+---
+
+<div class="outro" data-outro data-reel={JSON.stringify(reelSrcs)}>
+  <div class="outro-track" data-outro-track>
+    <div class="outro-stage">
+      <div class="outro-band" data-outro-band aria-hidden="true">
+        <canvas class="outro-canvas"></canvas>
+      </div>
+      <div class="outro-page" data-outro-page>
+        <a class="chip outro-link" href="/impressionen/" data-label="Impressionen">Impressionen</a>
+        <ul class="outro-grid" role="list">
+          {
+            gridPhotos.map((p) => (
+              <li>
+                <Image
+                  src={p.src}
+                  alt={`Arbeit von ${byline(p.name)}.`}
+                  widths={[240, 360, 480, 720]}
+                  sizes="(max-width: 720px) 50vw, 25vw"
+                  loading="lazy"
+                />
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const root = document.querySelector<HTMLElement>("[data-outro]");
+  if (root) init(root);
+
+  function init(root: HTMLElement) {
+    const live = matchMedia(
+      "(min-width: 700px) and (min-height: 520px) and (prefers-reduced-motion: no-preference)",
+    );
+    const track = root.querySelector<HTMLElement>("[data-outro-track]")!;
+    const band = root.querySelector<HTMLElement>("[data-outro-band]")!;
+    const page = root.querySelector<HTMLElement>("[data-outro-page]")!;
+    const canvas = band.querySelector<HTMLCanvasElement>("canvas")!;
+
+    // The reel easing, cubic-bezier(0.65, 0, 0.35, 1).
+    const ease = (() => {
+      const [x1, y1, x2, y2] = [0.65, 0, 0.35, 1];
+      const bez = (a: number, b: number, t: number) =>
+        3 * a * t * (1 - t) ** 2 + 3 * b * t * t * (1 - t) + t ** 3;
+      return (x: number) => {
+        if (x <= 0) return 0;
+        if (x >= 1) return 1;
+        let t = x;
+        for (let k = 0; k < 8; k++) {
+          const d = bez(x1, x2, t) - x;
+          const dd = (bez(x1, x2, t + 1e-4) - bez(x1, x2, t - 1e-4)) / 2e-4 || 1;
+          t -= d / dd;
+        }
+        return bez(y1, y2, Math.min(1, Math.max(0, t)));
+      };
+    })();
+    const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+    const range = (v: number, a: number, b: number) => clamp01((v - a) / (b - a));
+
+    let raf = 0;
+    let last = [-1, -1];
+
+    // P: 0 when the stage pins → 1 when it lets go. Track = 3 viewport heights.
+    function pos() {
+      return clamp01(-track.getBoundingClientRect().top / (2 * innerHeight));
+    }
+
+    function set(el: HTMLElement, e: number) {
+      el.style.clipPath = e >= 1 ? "none" : `inset(${(1 - e) * 100}% 0 0 0)`;
+      el.style.visibility = e <= 0 ? "hidden" : "visible";
+    }
+
+    function apply() {
+      raf = 0;
+      const P = pos();
+      const eBand = ease(range(P, 0.04, 0.34));
+      const ePage = ease(range(P, 0.5, 0.82));
+      if (last[0] !== eBand) set(band, eBand);
+      if (last[1] !== ePage) set(page, ePage);
+      last = [eBand, ePage];
+      page.style.pointerEvents = ePage < 1 ? "none" : "";
+      // The reel plays while the band is up and the page hasn't covered it.
+      setReel(eBand > 0 && ePage < 1);
+    }
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(apply);
+    };
+
+    // ---- reel: 12 fps, hard cuts, motion trail ----------------------------
+    const FPS = 12;
+    const TRAIL = 0.2;
+    const SAMPLES = 6;
+    const SAMPLE_ALPHA = 1 - Math.pow(1 - TRAIL, 1 / SAMPLES);
+    const SHOT = 1.2;
+    const MOVES = [
+      [1.1, 1.4, 0.05, 0.95],
+      [1.45, 1.15, 0.95, 0.1],
+    ];
+    let imgs: HTMLImageElement[] = [];
+    let playing = false;
+    let reelRaf = 0;
+
+    function loadImgs() {
+      if (imgs.length) return;
+      let srcs: string[] = [];
+      try {
+        srcs = JSON.parse(root.dataset.reel ?? "[]");
+      } catch {}
+      imgs = srcs.map((s) => {
+        const im = new Image();
+        im.src = s;
+        return im;
+      });
+    }
+
+    function setReel(on: boolean) {
+      if (on === playing) return;
+      playing = on;
+      cancelAnimationFrame(reelRaf);
+      reelRaf = 0;
+      if (!on || !live.matches) return;
+      loadImgs();
+      const scale = 0.75;
+      const w = (canvas.width = Math.round(innerWidth * scale));
+      const h = (canvas.height = Math.round(innerHeight * scale));
+      const acc = document.createElement("canvas");
+      acc.width = w;
+      acc.height = h;
+      const ctx = acc.getContext("2d")!;
+      const out = canvas.getContext("2d")!;
+      let first = true;
+      let nextPresent = 0;
+      let tPrev = 0;
+
+      const shootAt = (t: number) => {
+        const shot = Math.floor(t / SHOT);
+        const p = (t % SHOT) / SHOT;
+        const m = MOVES[shot % MOVES.length];
+        const img = imgs[shot % imgs.length];
+        if (!img || !img.complete || !img.naturalWidth) return;
+        const sc = m[0] + (m[1] - m[0]) * p;
+        const xT = m[2] + (m[3] - m[2]) * p;
+        const s = Math.max(w / img.naturalWidth, h / img.naturalHeight) * sc;
+        const dw = img.naturalWidth * s;
+        const dh = img.naturalHeight * s;
+        ctx.drawImage(img, (w - dw) * xT, (h - dh) / 2, dw, dh);
+      };
+
+      const t00 = performance.now();
+      const frame = (now: number) => {
+        const t = Math.max(0, now - t00) / 1000;
+        if (first) {
+          ctx.globalAlpha = 1;
+          shootAt(t);
+        } else {
+          ctx.globalAlpha = SAMPLE_ALPHA;
+          for (let k = 1; k <= SAMPLES; k++)
+            shootAt(tPrev + ((t - tPrev) * k) / SAMPLES);
+        }
+        tPrev = t;
+        if (first || now >= nextPresent) {
+          out.drawImage(acc, 0, 0);
+          nextPresent = Math.max(nextPresent + 1000 / FPS, now);
+        }
+        first = false;
+        reelRaf = requestAnimationFrame(frame);
+      };
+      reelRaf = requestAnimationFrame(frame);
+    }
+
+    function setMode() {
+      const on = live.matches;
+      root.classList.toggle("is-live", on);
+      if (!on) {
+        setReel(false);
+        for (const el of [band, page]) {
+          el.style.clipPath = "";
+          el.style.visibility = "";
+        }
+        page.style.pointerEvents = "";
+        last = [-1, -1];
+        return;
+      }
+      apply();
+    }
+
+    live.addEventListener("change", setMode);
+    addEventListener("scroll", () => live.matches && schedule(), { passive: true });
+    addEventListener("resize", () => {
+      if (!live.matches) return;
+      const was = playing;
+      setReel(false);
+      if (was) setReel(true);
+      schedule();
+    });
+    setMode();
+  }
+</script>
+
+<style>
+  /* ---- base = static fallback: chip + gapless grid, no reel ---- */
+  .outro {
+    margin: clamp(72px, 14vh, 160px) calc(-1 * var(--page-pad)) 0;
+    color: var(--color-ink);
+  }
+
+  .outro-band {
+    display: none;
+  }
+
+  .outro-page {
+    background: var(--color-paper);
+  }
+
+  .outro-link {
+    margin: 0 0 4px var(--page-pad);
+  }
+
+  .outro-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .outro-grid li {
+    min-width: 0;
+    margin: 0;
+  }
+
+  .outro-grid :global(img) {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 3 / 2;
+    object-fit: cover;
+  }
+
+  @media (min-width: 720px) {
+    .outro-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  /* ---- live: pinned stage, band then page rise bottom-up with scroll ---- */
+  .outro.is-live .outro-track {
+    height: 300vh;
+    height: 300svh;
+  }
+
+  .outro.is-live .outro-stage {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    height: 100svh;
+    overflow: hidden;
+  }
+
+  .outro.is-live .outro-band,
+  .outro.is-live .outro-page {
+    position: absolute;
+    inset: 0;
+    visibility: hidden;
+    will-change: clip-path;
+  }
+
+  .outro.is-live .outro-band {
+    display: block;
+    background: var(--color-ink);
+  }
+
+  .outro.is-live .outro-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    filter: grayscale(1) contrast(1.08) brightness(0.85);
+  }
+
+  .outro.is-live .outro-page {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: var(--page-pad);
+  }
+
+  .outro.is-live .outro-link {
+    flex: none;
+    align-self: flex-start;
+  }
+
+  /* The grid fills what's left of the screen, cells cropped to fit. */
+  .outro.is-live .outro-grid {
+    flex: 1;
+    min-height: 0;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: repeat(3, minmax(0, 1fr));
+  }
+
+  .outro.is-live .outro-grid li {
+    min-height: 0;
+  }
+
+  .outro.is-live .outro-grid :global(img) {
+    height: 100%;
+    aspect-ratio: auto;
+  }
+</style>
