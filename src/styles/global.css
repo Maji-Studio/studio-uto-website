@@ -6,14 +6,8 @@
   font-display: block;
 }
 
-/* Cross-document (MPA) View Transitions. Each navigation stays a real page
-   load — so the logo's fit/contrast script runs fresh every time — while the
-   browser animates between the outgoing and incoming snapshots. Chromium-only
-   today; other browsers fall back to an instant, un-animated navigation with
-   no breakage. */
-@view-transition {
-  navigation: auto;
-}
+/* The cross-document view-transition opt-in lives inline in BaseLayout's
+   <head>, not here — see the note there. */
 
 /* Baseline for every view transition: no whole-page opacity cross-fade. Page
    navigations replace this with the reel choreography below. */

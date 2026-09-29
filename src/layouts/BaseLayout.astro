@@ -31,6 +31,24 @@ const pageTitle = title === site.name ? title : `${title} | ${site.name}`;
     <title>{pageTitle}</title>
 
     {/*
+     * Cross-document (MPA) View Transitions. Each navigation stays a real page
+     * load — so the logo's fit/contrast script runs fresh every time — while the
+     * browser animates between the outgoing and incoming snapshots. Chromium-only
+     * today; other browsers fall back to an instant navigation with no breakage.
+     *
+     * The opt-in must be inline and first: in the built site the bundled CSS is
+     * an external stylesheet linked after the inline scripts below, and when the
+     * new page was revealed before that sheet applied, Chrome aborted the
+     * transition ("ViewTransition opt-in disabled") on roughly half of all
+     * navigations. The choreography itself stays in global.css.
+     */}
+    <style is:inline>
+      @view-transition {
+        navigation: auto;
+      }
+    </style>
+
+    {/*
      * View-transition logo restore. A cross-document transition snapshots the
      * incoming logo at its first rendering opportunity — which is BEFORE the
      * bundled (deferred) logo script fits it — so the wordmark would morph from
