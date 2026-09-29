@@ -325,6 +325,39 @@
 
     q("[data-lightbox-close]")?.addEventListener("click", close);
 
+    const under = (el: Element, e: MouseEvent) => {
+      const rect = el.getBoundingClientRect();
+      return (
+        e.clientX >= rect.left &&
+        e.clientX < rect.right &&
+        e.clientY >= rect.top &&
+        e.clientY < rect.bottom
+      );
+    };
+
+    // A click anywhere but the image or a control closes the viewer. The press
+    // has to start off the image too, so a drag off the image doesn't count.
+    let pressedBackground = false;
+    document.addEventListener(
+      "pointerdown",
+      (e) => {
+        pressedBackground =
+          dialog.open &&
+          e.button === 0 &&
+          !under(image, e) &&
+          !Array.from(dialog.querySelectorAll("button")).some((b) =>
+            under(b, e),
+          );
+      },
+      { capture: true },
+    );
+    dialog.addEventListener("click", (e) => {
+      const t = e.target as Element;
+      const pressed = pressedBackground;
+      pressedBackground = false;
+      if (pressed && t !== image && !t.closest("button")) close();
+    });
+
     // Some engines retarget pointer input to the document while the modal is
     // captured, even with pointer-events disabled on the snapshot layer. Route
     // that input to the real control, keeping focus and the current morph intact.
@@ -337,19 +370,14 @@
       )
         return;
       e.preventDefault();
-      const button = Array.from(dialog.querySelectorAll("button")).find(
-        (button) => {
-          const rect = button.getBoundingClientRect();
-          return (
-            e.clientX >= rect.left &&
-            e.clientX < rect.right &&
-            e.clientY >= rect.top &&
-            e.clientY < rect.bottom
-          );
-        },
+      const button = Array.from(dialog.querySelectorAll("button")).find((b) =>
+        under(b, e),
       );
       button?.focus({ preventScroll: true });
-      if (e.type === "click") button?.click();
+      if (e.type !== "click") return;
+      if (button) button.click();
+      else if (pressedBackground) close();
+      pressedBackground = false;
     };
     document.addEventListener("pointerdown", routeSnapshotInput, {
       capture: true,
