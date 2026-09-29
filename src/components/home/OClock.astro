@@ -1,0 +1,586 @@
+---
+/*
+ * The O clock. Clicking the header date (#today) or the wordmark's O lifts the O
+ * out of the logo and grows it to fill the viewport; its counter becomes the
+ * clock face (src/lib/o-glyph.ts models where the counter sits).
+ *
+ * The face is a level: a black fill rises through the counter over the minute —
+ * the chip hover fill, stretched to 60 s — inverting the time and the seconds
+ * scale where it passes. At :00 the counter is full, the O is a solid block, and
+ * the level drops.
+ *
+ * Choreography (runtime below):
+ *   open   the O grows out of the logo (glyph re-set at its real size every
+ *          frame, axes blending from the logo's to the clock's), then the level
+ *          rises to the current second while the scale slides in bottom to top,
+ *          then the time rolls up into place left to right
+ *   tick   the level steps up each second; digits that change roll through
+ *   close  the time drops out right to left, the scale slides out and the level
+ *          drains, then the O shrinks back into the logo
+ * Close: the button, a click anywhere, or Esc.
+ */
+
+// Seconds scale, 0 (bottom) → 60 (top). Every 10 s carries a chip label.
+const scale = Array.from({ length: 61 }, (_, i) => ({
+  i,
+  top: 100 - (i / 60) * 100,
+  len: i % 10 === 0 ? 44 : i % 5 === 0 ? 24 : 12,
+  major: i % 10 === 0,
+  label: i % 10 === 0 && i > 0 && i < 60,
+}));
+const layers = ["paper", "ink"] as const;
+---
+
+<div
+  class="o-clock"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Uhr"
+  data-state="closed"
+  hidden
+>
+  <div class="o-clock__window"></div>
+  <span class="o-clock__o" aria-hidden="true">O</span>
+
+  <div class="o-clock__face" aria-hidden="true" hidden>
+    {
+      layers.map((layer) => (
+        <div class:list={["o-clock__layer", `o-clock__layer--${layer}`]}>
+          <div class="o-clock__time" />
+          <div class="o-clock__scale">
+            {scale.map((tick) => (
+              <>
+                <i
+                  class:list={{ major: tick.major }}
+                  style={`top: ${tick.top}%; width: ${tick.len}px`}
+                  data-i={tick.i}
+                />
+                {tick.label && (
+                  <b class="chip" style={`top: ${tick.top}%`} data-i={tick.i}>
+                    {tick.i}
+                  </b>
+                )}
+              </>
+            ))}
+          </div>
+        </div>
+      ))
+    }
+  </div>
+
+  <button type="button" class="o-clock__close">Schliessen ✕</button>
+</div>
+
+<script>
+  import { BEARING, INK_HEIGHT, fitO, inkWidth } from "@/lib/o-glyph";
+  import type { Axes, Rect } from "@/lib/o-glyph";
+
+  // A light O with thin top/bottom strokes: the tallest counter the font gives.
+  const CLOCK_AXES: Axes = { wght: 14, cont: 100 };
+  const OPEN_MS = 760;
+  const CLOSE_MS = 560;
+  const DIGITS_DELAY = 420; // on open, the level and scale lead the time
+  const EASE_OUT = "cubic-bezier(0.22, 1, 0.36, 1)"; // the chip hover fill
+  const EASE_IN_OUT = "cubic-bezier(0.65, 0, 0.35, 1)"; // the page transition
+
+  const trigger = document.getElementById("today");
+  const logoO = document.querySelectorAll<HTMLElement>(".logo > span")[2];
+  const root = document.querySelector<HTMLElement>(".o-clock");
+
+  if (trigger && logoO && root) {
+    const glyph = root.querySelector<HTMLElement>(".o-clock__o")!;
+    const win = root.querySelector<HTMLElement>(".o-clock__window")!;
+    const face = root.querySelector<HTMLElement>(".o-clock__face")!;
+    const ink = root.querySelector<HTMLElement>(".o-clock__layer--ink")!;
+    const times = root.querySelectorAll<HTMLElement>(".o-clock__time");
+    const scaleMarks = root.querySelectorAll<HTMLElement>(
+      ".o-clock__scale > [data-i]",
+    );
+    const closeBtn = root.querySelector<HTMLElement>(".o-clock__close")!;
+
+    const reducedMotion = () =>
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const px = (n: number) => `${n}px`;
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+    // EASE_IN_OUT, for the rAF-driven zoom.
+    const easeInOut = (t: number) =>
+      t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+    let state: "closed" | "opening" | "open" | "closing" = "closed";
+    let rect: Rect = { x: 0, y: 0, w: 0, h: 0 };
+    let axes: Axes = CLOCK_AXES;
+    let timer = 0;
+    let lastSecond = -1;
+
+    // ── The O ────────────────────────────────────────────────────────────────
+
+    const viewport = (): Rect => ({
+      x: 0,
+      y: 0,
+      w: root.clientWidth,
+      h: root.clientHeight,
+    });
+
+    // Where the wordmark's O ink sits right now, and its axes (both change with
+    // the logo's fit and hover).
+    const logoInk = (): { rect: Rect; axes: Axes } => {
+      const r = logoO.getBoundingClientRect();
+      const fs = parseFloat(getComputedStyle(logoO).fontSize);
+      const fvs = logoO.style.fontVariationSettings;
+      const axis = (tag: string, fallback: number) => {
+        const m = fvs.match(new RegExp(`"${tag}"\\s+([\\d.]+)`));
+        return m ? parseFloat(m[1]) : fallback;
+      };
+      const m = logoO.style.transform.match(/scaleX\(([\d.]+)\)/);
+      const sx = m ? parseFloat(m[1]) : 1;
+      return {
+        rect: {
+          x: r.left + BEARING * fs * sx,
+          y: r.top,
+          w: inkWidth(axis("wdth", 100) / 100) * fs * sx,
+          h: INK_HEIGHT * fs,
+        },
+        axes: { wght: axis("wght", 100), cont: axis("CONT", 50) },
+      };
+    };
+
+    // Set the glyph onto a box, with the white counter behind it.
+    const setO = (r: Rect, a: Axes) => {
+      rect = r;
+      axes = a;
+      const fit = fitO(r, a);
+      glyph.style.fontSize = px(fit.fs);
+      glyph.style.fontVariationSettings = `"wght" ${a.wght}, "wdth" ${fit.wdth}, "CONT" ${a.cont}`;
+      glyph.style.left = px(r.x - BEARING * fit.fs * fit.sx);
+      glyph.style.top = px(r.y);
+      glyph.style.transform = `scaleX(${fit.sx})`;
+      // Tuck the window a few px under the ink so no page shows at the seam.
+      const seam = Math.min(3, fit.cap / 3, fit.side / 3);
+      const c = fit.counter;
+      Object.assign(win.style, {
+        left: px(c.x - seam),
+        top: px(c.y - seam),
+        width: px(c.w + 2 * seam),
+        height: px(c.h + 2 * seam),
+      });
+      Object.assign(face.style, {
+        left: px(c.x),
+        top: px(c.y),
+        width: px(c.w),
+        height: px(c.h),
+      });
+      root.style.setProperty("--cap", px(fit.cap));
+      root.style.setProperty("--side", px(fit.side));
+    };
+
+    const zoom = (
+      from: { rect: Rect; axes: Axes },
+      to: () => { rect: Rect; axes: Axes },
+      ms: number,
+    ) =>
+      new Promise<void>((resolve) => {
+        const t0 = performance.now();
+        const frame = (now: number) => {
+          const t = reducedMotion() ? 1 : Math.min(1, (now - t0) / ms);
+          const p = easeInOut(t);
+          const end = to();
+          setO(
+            {
+              x: lerp(from.rect.x, end.rect.x, p),
+              y: lerp(from.rect.y, end.rect.y, p),
+              w: lerp(from.rect.w, end.rect.w, p),
+              h: lerp(from.rect.h, end.rect.h, p),
+            },
+            {
+              wght: lerp(from.axes.wght, end.axes.wght, p),
+              cont: lerp(from.axes.cont, end.axes.cont, p),
+            },
+          );
+          if (t < 1) requestAnimationFrame(frame);
+          else resolve();
+        };
+        requestAnimationFrame(frame);
+      });
+
+    // ── The face ─────────────────────────────────────────────────────────────
+
+    // Each character sits in its own slot, clipped top and bottom. A new
+    // character rises in from below and the one it replaces leaves upward, so
+    // after the opening roll only the digits that change move.
+    const roll = (box: HTMLElement, text: string, enter: boolean) => {
+      const chars = [...text];
+      while (box.children.length < chars.length) {
+        const slot = document.createElement("span");
+        slot.className = "o-clock__slot";
+        box.append(slot);
+      }
+      chars.forEach((ch, i) => {
+        const slot = box.children[i] as HTMLElement;
+        const cur = slot.querySelector<HTMLElement>(
+          ":scope > span:not(.is-leaving)",
+        );
+        if (cur?.textContent === ch) return;
+
+        const next = document.createElement("span");
+        next.textContent = ch;
+        slot.append(next);
+        if (reducedMotion()) {
+          cur?.remove();
+          return;
+        }
+        next.animate(
+          [{ transform: "translateY(105%)" }, { transform: "translateY(0)" }],
+          {
+            duration: enter ? 760 : 560,
+            delay: enter ? DIGITS_DELAY + i * 70 : 0,
+            easing: EASE_OUT,
+            fill: "backwards",
+          },
+        );
+        if (cur) {
+          cur.classList.add("is-leaving");
+          cur
+            .animate(
+              [
+                { transform: "translateY(0)" },
+                { transform: "translateY(-105%)" },
+              ],
+              { duration: 560, easing: EASE_OUT, fill: "forwards" },
+            )
+            .finished.then(() => cur.remove());
+        }
+      });
+    };
+
+    // Scale marks slide in from (or out to) the right edge; the labels sit 44px
+    // in, so they travel that much further.
+    const scaleOffset = (el: HTMLElement) =>
+      el.tagName === "B" ? "translateX(calc(100% + 44px))" : "translateX(100%)";
+
+    const show = (now: Date, enter: boolean) => {
+      const s = now.getSeconds();
+      // Both layers roll the same characters on the same frame, so the inverted
+      // copy under the level stays locked to the one above it.
+      const time = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      times.forEach((box) => roll(box, time, enter));
+
+      // The level eases up a step each second and drops instantly at :00.
+      const level = `inset(${(1 - s / 60) * 100}% 0 0 0)`;
+      ink.style.transition = enter || s < lastSecond ? "none" : "";
+      ink.style.clipPath = level;
+      lastSecond = s;
+
+      if (enter && !reducedMotion()) {
+        ink.animate([{ clipPath: "inset(100% 0 0 0)" }, { clipPath: level }], {
+          duration: 900,
+          easing: EASE_OUT,
+          fill: "backwards",
+        });
+        scaleMarks.forEach((el) => {
+          el.animate([{ transform: scaleOffset(el) }, { transform: "none" }], {
+            duration: 420,
+            delay: Number(el.dataset.i) * 9,
+            easing: EASE_OUT,
+            fill: "backwards",
+          });
+        });
+      }
+    };
+
+    // The opening in reverse: the time drops out right to left, then the scale
+    // slides out top to bottom while the level drains.
+    const leave = async () => {
+      if (reducedMotion()) return;
+      const out = { easing: EASE_IN_OUT, fill: "forwards" as FillMode };
+      const anims: Animation[] = [];
+
+      times.forEach((box) => {
+        const slots = [...box.children];
+        slots.forEach((slot, i) => {
+          slot.querySelectorAll(":scope > span").forEach((ch) => {
+            anims.push(
+              ch.animate(
+                [
+                  { transform: "translateY(0)" },
+                  { transform: "translateY(105%)" },
+                ],
+                { ...out, duration: 380, delay: (slots.length - 1 - i) * 40 },
+              ),
+            );
+          });
+        });
+      });
+      scaleMarks.forEach((el) => {
+        anims.push(
+          el.animate([{ transform: "none" }, { transform: scaleOffset(el) }], {
+            ...out,
+            duration: 300,
+            delay: 180 + (60 - Number(el.dataset.i)) * 4,
+          }),
+        );
+      });
+      anims.push(
+        ink.animate(
+          [
+            { clipPath: getComputedStyle(ink).clipPath },
+            { clipPath: "inset(100% 0 0 0)" },
+          ],
+          { ...out, duration: 480, delay: 180 },
+        ),
+      );
+
+      await Promise.all(anims.map((a) => a.finished));
+    };
+
+    const resetFace = () => {
+      face.getAnimations({ subtree: true }).forEach((a) => a.cancel());
+      times.forEach((box) => box.replaceChildren());
+      ink.style.clipPath = "";
+      lastSecond = -1;
+    };
+
+    // Re-render on each second boundary.
+    const schedule = () => {
+      timer = window.setTimeout(
+        () => {
+          show(new Date(), false);
+          schedule();
+        },
+        1000 - (Date.now() % 1000),
+      );
+    };
+
+    // ── Open / close ─────────────────────────────────────────────────────────
+
+    const open = async () => {
+      if (state !== "closed") return;
+      state = "opening";
+      const from = logoInk();
+      root.hidden = false;
+      root.dataset.state = "opening";
+      setO(from.rect, from.axes);
+      logoO.style.visibility = "hidden";
+      trigger.setAttribute("aria-expanded", "true");
+
+      await zoom(from, () => ({ rect: viewport(), axes: CLOCK_AXES }), OPEN_MS);
+
+      state = "open";
+      root.dataset.state = "open";
+      face.hidden = false;
+      show(new Date(), true);
+      schedule();
+      closeBtn.focus({ preventScroll: true });
+    };
+
+    const close = async () => {
+      if (state !== "open") return;
+      state = "closing";
+      window.clearTimeout(timer);
+      root.dataset.state = "closing";
+
+      await leave();
+      // Hide before resetting, so the scale doesn't snap back in while the O
+      // shrinks.
+      face.hidden = true;
+      resetFace();
+      await zoom({ rect, axes }, logoInk, CLOSE_MS);
+
+      logoO.style.visibility = "";
+      root.hidden = true;
+      root.dataset.state = "closed";
+      trigger.setAttribute("aria-expanded", "false");
+      trigger.focus({ preventScroll: true });
+      state = "closed";
+    };
+
+    // The header date becomes a button; the O opens the clock too.
+    trigger.setAttribute("role", "button");
+    trigger.setAttribute("tabindex", "0");
+    trigger.setAttribute("aria-haspopup", "dialog");
+    trigger.setAttribute("aria-expanded", "false");
+    trigger.addEventListener("click", open);
+    trigger.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        open();
+      }
+    });
+    logoO.addEventListener("click", open);
+
+    root.addEventListener("click", close);
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") close();
+    });
+    // Keep the page (and the logo the O returns to) from scrolling underneath.
+    const block = (e: Event) => e.preventDefault();
+    root.addEventListener("wheel", block, { passive: false });
+    root.addEventListener("touchmove", block, { passive: false });
+
+    window.addEventListener("resize", () => {
+      if (state === "open") setO(viewport(), CLOCK_AXES);
+    });
+  }
+</script>
+
+<style>
+  :global(#today),
+  :global(.logo > span:nth-child(3)) {
+    cursor: pointer;
+  }
+
+  .o-clock {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    overflow: hidden;
+    cursor: zoom-out;
+  }
+
+  .o-clock[hidden] {
+    display: none;
+  }
+
+  /* Once the O fills the screen, a solid backing hides any anti-aliased seam
+     between the glyph's outer edge and the viewport. */
+  .o-clock::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--color-ink);
+    opacity: 0;
+  }
+
+  .o-clock[data-state="open"]::before {
+    opacity: 1;
+  }
+
+  .o-clock__window {
+    position: absolute;
+    background: var(--color-paper);
+  }
+
+  .o-clock__o {
+    position: absolute;
+    display: block;
+    margin: 0;
+    color: var(--color-ink);
+    font-family: var(--font-logo);
+    font-weight: 900;
+    line-height: 0.8;
+    white-space: nowrap;
+    transform-origin: left top;
+    user-select: none;
+  }
+
+  /* Sized to the counter by the script; the time scales with it. */
+  .o-clock__face {
+    position: absolute;
+    overflow: hidden;
+    container-type: size;
+  }
+
+
+  .o-clock__layer {
+    position: absolute;
+    inset: 0;
+  }
+
+  .o-clock__layer--paper {
+    background: var(--color-paper);
+    color: var(--color-ink);
+  }
+
+  .o-clock__layer--ink {
+    background: var(--color-ink);
+    color: var(--color-paper);
+    clip-path: inset(100% 0 0 0);
+    transition: clip-path 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* "12:18" in tabular Helvetica is ~2.5 em wide and ~0.72 em tall: fill 86% of
+     the counter's width, capped at 60% of its height. */
+  .o-clock__time {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: min(34.4cqw, 83.7cqh);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  /* One cell per character. It clips only vertically — that's where the roll
+     happens — so round glyphs can overhang their tight advance sideways. */
+  .o-clock__time :global(.o-clock__slot) {
+    position: relative;
+    display: inline-block;
+    overflow-x: visible;
+    overflow-y: clip;
+    vertical-align: top;
+  }
+
+  .o-clock__time :global(.o-clock__slot > span) {
+    display: block;
+  }
+
+  .o-clock__time :global(.o-clock__slot > .is-leaving) {
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+
+  .o-clock__scale i,
+  .o-clock__scale b {
+    position: absolute;
+    right: 0;
+    translate: 0 -50%;
+  }
+
+  .o-clock__scale i {
+    height: 1px;
+    background: currentColor;
+  }
+
+  .o-clock__scale i.major {
+    height: 3px;
+  }
+
+  /* Labels are the nav chip, butted against their tick. Under the level they
+     invert, like the active chip. */
+  .o-clock__scale b {
+    right: 44px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .o-clock__layer--ink .o-clock__scale b {
+    background: var(--color-paper);
+    color: var(--color-ink);
+  }
+
+  /* Inverted chip, set in the O's top stroke. */
+  .o-clock__close {
+    position: absolute;
+    top: max(6px, calc((var(--cap) - 21px) / 2));
+    right: max(12px, var(--side));
+    display: none;
+    min-height: 21px;
+    border: 0;
+    border-radius: 0;
+    background: var(--color-paper);
+    padding: 3px 11px;
+    color: var(--color-ink);
+    font: inherit;
+    font-size: 0.8125rem;
+    line-height: 1.2;
+    cursor: pointer;
+  }
+
+  .o-clock[data-state="open"] .o-clock__close {
+    display: block;
+  }
+</style>

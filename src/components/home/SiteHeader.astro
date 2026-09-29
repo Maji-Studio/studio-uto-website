@@ -1,4 +1,5 @@
 ---
+import OClock from "@/components/home/OClock.astro";
 import { isRouteActive } from "@/lib/routes";
 import { primaryNav, site, socials } from "@/lib/site";
 
@@ -70,6 +71,9 @@ const today = formatGermanDate(now);
     }
   </div>
 </header>
+
+{/* Clicking the date (or the O) opens the O clock. */}
+<OClock />
 
 <script>
   // Keep the date and time current, including when the page stays open.
