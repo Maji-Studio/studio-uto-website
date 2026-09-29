@@ -6,15 +6,24 @@
 // outer bottom corners; T: full-width bar, centred stem; O: r6's rounded-rect
 // ring), extruded as a fat rounded tube; the morph blends the 2D fields with a
 // swell and a ripple so the metal flows rather than crossfades. Black fact
-// labels are scattered around and over it.
+// labels are scattered around and over it; each links to its section on
+// /information/ and, on hover, shows a small studio photo.
+import type { ImageMetadata } from "astro";
 import { Image } from "astro:assets";
 
+import boden from "@/assets/studio/boden.jpg";
 import fallback from "@/assets/studio/chrome-o.png";
+import grundriss from "@/assets/studio/grundriss.png";
+import kaffeemaschine from "@/assets/studio/kaffeemaschine.jpg";
+import mittagslicht from "@/assets/studio/mittagslicht.jpg";
+import panorama from "@/assets/studio/panorama.jpg";
+import shootingFlaeche from "@/assets/studio/shooting-flaeche.jpg";
+import sichtVonDerKueche from "@/assets/studio/sicht-von-der-kueche.jpg";
 
+import { informationSections } from "@/lib/information";
 import { address } from "@/lib/site";
-import { studioSections } from "@/lib/studio";
 
-const sections = studioSections ?? [];
+const sections = informationSections ?? [];
 const byId = (id: string) => sections.find((s) => s?.id === id);
 const allPairs = (id: string) =>
   (byId(id)?.blocks ?? []).flatMap((b) => b?.pairs ?? []);
@@ -37,38 +46,43 @@ const wifi = allLines("grundriss").join(" ").match(/\d+\s*Gb\/s/)?.[0];
 const hoursLine = allLines("oeffnungszeiten")[0] ?? "";
 const days = hoursLine.match(/^([A-Za-zÄÖÜäöü]+\s*–\s*[A-Za-zÄÖÜäöü]+)/)?.[1];
 const hours = hoursLine.match(/(\d{1,2}):\d{2}\s*–\s*(\d{1,2}):\d{2}/);
-const lift = allLines("oeffnungszeiten").some((l) => /Warenlift/.test(l));
+const lift = allLines("anfahrt").some((l) => /Warenlift/.test(l));
 const prices = allPairs("preise");
 const dayPrice = prices.find(([t]) => /Ganzer/i.test(t))?.[1];
 const halfPrice = prices.find(([t]) => /Halber/i.test(t))?.[1];
 
 // Deterministic scatter: x/y in % of the stage (desktop), mx/my for phones,
-// z = parallax depth. A few deliberately sit on the object.
-const factDefs: [string | undefined, string, number, number, number, number, number][] = [
-  [shoot.L && shoot.B && `${shoot.L} × ${shoot.B} m Shooting-Fläche`, "daten", 13, 18, 4, 12, 0.6],
-  [shoot.H && `H ${shoot.H} m`, "daten", 71, 13, 70, 9, -0.4],
-  [floorWord, "daten", 40, 39, 30, 40, 1],
-  [wifi, "grundriss", 79, 52, 72, 30, 0.5],
-  [days && hours ? `${days} ${hours[1]}–${hours[2]}` : undefined, "oeffnungszeiten", 8, 58, 4, 70, -0.7],
-  [dayPrice && `${dayPrice} / Tag`, "preise", 57, 71, 48, 58, 1],
-  [whole.L && whole.B && `${whole.L} × ${whole.B} m gesamt`, "daten", 23, 81, 8, 86, -0.3],
-  [molton, "daten", 84, 31, 60, 78, 0.8],
-  [styros && `${styros} Styros s/w`, "daten", 61, 36, 58, 46, -1],
-  [lift ? "Warenlift, 3. Stock" : undefined, "oeffnungszeiten", 30, 62, 12, 54, 0.9],
-  [address?.street, "oeffnungszeiten", 75, 85, 52, 91, -0.6],
-  [halfPrice && `${halfPrice} / ½ Tag`, "preise", 17, 40, 6, 24, 0.3],
+// z = parallax depth. A few deliberately sit on the object. The id is the
+// /information/ section the label links to; the photo is its hover peek.
+const factDefs: [string | undefined, string, ImageMetadata, number, number, number, number, number][] = [
+  [shoot.L && shoot.B && `${shoot.L} × ${shoot.B} m Shooting-Fläche`, "daten", shootingFlaeche, 13, 18, 4, 12, 0.6],
+  [shoot.H && `H ${shoot.H} m`, "daten", panorama, 71, 13, 70, 9, -0.4],
+  [floorWord, "daten", boden, 40, 39, 30, 40, 1],
+  [wifi, "grundriss", kaffeemaschine, 79, 52, 72, 30, 0.5],
+  [days && hours ? `${days} ${hours[1]}–${hours[2]}` : undefined, "oeffnungszeiten", mittagslicht, 8, 58, 4, 70, -0.7],
+  [dayPrice && `${dayPrice} / Tag`, "preise", shootingFlaeche, 57, 71, 48, 58, 1],
+  [whole.L && whole.B && `${whole.L} × ${whole.B} m gesamt`, "grundriss", grundriss, 23, 81, 8, 86, -0.3],
+  [molton, "daten", sichtVonDerKueche, 84, 31, 60, 78, 0.8],
+  [styros && `${styros} Styros s/w`, "daten", panorama, 61, 36, 58, 46, -1],
+  [lift ? "Warenlift, 3. Stock" : undefined, "anfahrt", grundriss, 30, 62, 12, 54, 0.9],
+  [address?.street, "anfahrt", sichtVonDerKueche, 75, 85, 52, 91, -0.6],
+  [halfPrice && `${halfPrice} / ½ Tag`, "preise", mittagslicht, 17, 40, 6, 24, 0.3],
 ];
 const facts = factDefs
   .filter((f) => !!f[0])
-  .map(([label, id, x, y, mx, my, z], i) => ({
+  .map(([label, id, photo, x, y, mx, my, z], i) => ({
     label: label as string,
-    id,
+    href: `/information/#${id}`,
+    photo,
     x,
     y,
     mx,
     my,
     z,
     glitch: i === 2 || i === 8,
+    // The peek opens away from the stage edge it would run off.
+    flipX: x > 60,
+    flipY: y > 65,
   }));
 
 // Fallback still for no-WebGL: the generated chrome O, if it exists.
@@ -96,10 +110,27 @@ const facts = factDefs
       {
         facts.map((f) => (
           <li
-            class:list={["intro__fact", { "intro__fact--glitch": f.glitch }]}
+            class:list={[
+              "intro__fact",
+              {
+                "intro__fact--glitch": f.glitch,
+                "intro__fact--left": f.flipX,
+                "intro__fact--up": f.flipY,
+              },
+            ]}
             style={`--x:${f.x}%;--y:${f.y}%;--mx:${f.mx}%;--my:${f.my}%;--z:${f.z}`}
           >
-            <a href={`#${f.id}`}>{f.label}</a>
+            <a href={f.href}>
+              {f.label}
+              <Image
+                class="intro__peek"
+                src={f.photo}
+                alt=""
+                widths={[280, 560]}
+                sizes="280px"
+                loading="lazy"
+              />
+            </a>
           </li>
         ))
       }
@@ -192,11 +223,66 @@ const facts = factDefs
     color: var(--ink);
   }
 
-  /* r6's glitch: a strip of checker that bites into the label's edge. */
-  .intro__fact--glitch a {
+  /* Hovered label (and its peek) sits above its neighbours. */
+  .intro__fact:hover,
+  .intro__fact:focus-within {
+    z-index: 1;
+  }
+
+  /* Hover peek: a small studio photo hung off the label's corner, opening
+     away from the nearest stage edge. Pointer devices only. */
+  .intro__fact a {
     position: relative;
   }
 
+  .intro__peek {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    width: clamp(180px, 18vw, 280px);
+    height: auto;
+    max-width: none;
+    opacity: 0;
+    visibility: hidden;
+    translate: 0 4px;
+    pointer-events: none;
+    transition:
+      opacity 160ms ease,
+      translate 160ms ease,
+      visibility 0s linear 160ms;
+  }
+
+  .intro__fact--left .intro__peek {
+    left: auto;
+    right: 0;
+  }
+
+  .intro__fact--up .intro__peek {
+    top: auto;
+    bottom: calc(100% + 4px);
+    translate: 0 -4px;
+  }
+
+  @media (hover: hover) {
+    .intro__fact a:hover .intro__peek,
+    .intro__fact a:focus-visible .intro__peek {
+      opacity: 1;
+      visibility: visible;
+      translate: 0 0;
+      transition:
+        opacity 160ms ease,
+        translate 160ms ease,
+        visibility 0s;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .intro__peek {
+      translate: none !important;
+    }
+  }
+
+  /* r6's glitch: a strip of checker that bites into the label's edge. */
   .intro__fact--glitch a::before {
     content: "";
     position: absolute;

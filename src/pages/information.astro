@@ -1,19 +1,13 @@
 ---
 import Logo from "@/components/home/Logo.astro";
-import SectionNav from "@/components/home/SectionNav.astro";
 import SiteHeader from "@/components/home/SiteHeader.astro";
-import StudioInfo from "@/components/home/StudioInfo.astro";
+import Facts from "@/components/home/studio/Facts.astro";
 import SiteFooter from "@/components/site/SiteFooter.astro";
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { informationSections } from "@/lib/information";
 
 const description =
-  "Information — Studio Uto im Atelier Uto, Flüelastrasse 16, 8048 Zürich: Studio, Anfahrt, Buchung und Kontakt.";
-
-const sectionItems = informationSections.map((section) => ({
-  label: section.navLabel ?? section.title,
-  href: `#${section.id}`,
-}));
+  "Information — Studio Uto im Atelier Uto, Flüelastrasse 16, 8048 Zürich: Daten, Ausstattung, Öffnungszeiten, Preise, Anfahrt, Buchung und Kontakt.";
 ---
 
 <BaseLayout title="Information" description={description}>
@@ -23,8 +17,8 @@ const sectionItems = informationSections.map((section) => ({
 
     <SiteHeader />
 
-    <SectionNav items={sectionItems} />
-    <StudioInfo sections={informationSections} />
+    {/* Numbered sections, the facts in the fact-sheet chip language. */}
+    <Facts sections={informationSections} />
 
     <SiteFooter />
   </main>

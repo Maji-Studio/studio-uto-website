@@ -1,12 +1,12 @@
 import { address, contact } from "@/lib/site";
-import type { StudioSection } from "@/lib/studio";
+import { type StudioSection, studioSections } from "@/lib/studio";
 
 const mapsQuery = encodeURIComponent(`${address.street}, ${address.city}`);
 
 /**
- * The Information page ("/information/"): who the studio is, where it sits, how
- * to get there and how to book. Same section/block shapes as the homepage fact
- * sheet (see src/lib/studio.ts), rendered by StudioInfo.
+ * The Information page ("/information/"): who the studio is, the studio fact
+ * sheet (src/lib/studio.ts, spliced in after the intro), where it sits, how to
+ * get there and how to book. Rendered by src/components/home/studio/Facts.astro.
  *
  * Sources: studio-uto.ch (description, Anfahrt), the Atelier Uto listing on
  * raumboerse-zh.ch (cooperative, public transport).
@@ -25,13 +25,12 @@ export const informationSections: readonly StudioSection[] = [
       },
       {
         links: [
-          { label: "Daten & Ausstattung", detail: "Studio", href: "/#daten" },
-          { label: "Preise", detail: "ab CHF 550", href: "/#preise" },
           { label: "Arbeiten", detail: "Impressionen", href: "/impressionen/" },
         ],
       },
     ],
   },
+  ...studioSections,
   {
     id: "atelier",
     title: "Atelier Uto",
@@ -81,12 +80,6 @@ export const informationSections: readonly StudioSection[] = [
     title: "Buchung & Kontakt",
     navLabel: "Buchung",
     blocks: [
-      {
-        pairs: [
-          ["Mo – Fr", "9:00 – 18:00 Uhr"],
-          ["Wochenende & Randzeiten", "auf Anfrage"],
-        ],
-      },
       {
         links: [
           { label: "Anfrage", detail: "Jetzt anfragen", href: "/kontakt/" },

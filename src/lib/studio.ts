@@ -9,9 +9,9 @@ import shootingFlaeche from "@/assets/studio/shooting-flaeche.jpg";
 import sichtVonDerKueche from "@/assets/studio/sicht-von-der-kueche.jpg";
 
 /**
- * Studio fact-sheet content shown on the homepage ("/"), sourced from
- * studio-uto.ch. The four sections line up 1:1 with `sectionNav` in site.ts —
- * each `id` is the in-page anchor the sticky section nav scrolls to.
+ * Studio fact-sheet content, sourced from studio-uto.ch. The sections render on
+ * the Information page (spliced into `informationSections`); the homepage's
+ * chrome intro picks its labels out of them and links to each `id` there.
  *
  * Block shapes (a block may combine several, rendered in this order):
  *  - `text`    — running paragraphs.
@@ -89,7 +89,7 @@ export interface StudioBlock {
 }
 
 export interface StudioSection {
-  /** In-page anchor id — must match the matching `sectionNav` href. */
+  /** Anchor id on the page the section renders on. */
   id: string;
   /** Section heading, set large in the left column. */
   title: string;
@@ -136,6 +136,7 @@ export const studioSections: readonly StudioSection[] = [
   {
     id: "grundriss",
     title: "Grundriss und Ausstattung",
+    navLabel: "Ausstattung",
     blocks: [
       {
         label: "Im Studio",
@@ -174,15 +175,6 @@ export const studioSections: readonly StudioSection[] = [
       {
         lines: ["Mo – Fr, jeweils 9:00 – 18:00 Uhr"],
         note: "Wochenende und Randzeiten auf Anfrage.",
-      },
-      {
-        label: "Anfahrt, Parking & Anlieferung",
-        lines: [
-          "Einfahrt von Flüelastrasse, 3. Stock «Atelier Uto»",
-          "Ein Parkplatz auf der Hinterseite des Gebäudes (ab März), beschildert mit «Atelier Uto»",
-          "Weitere Besucherparkplätze auf dem Areal",
-          "Warenlift ebenerdig in den 3. Stock",
-        ],
       },
     ],
   },

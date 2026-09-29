@@ -59,18 +59,6 @@ export const primaryNav: NavItem[] = [
   { label: "Kontakt", href: "/kontakt/" },
 ];
 
-/**
- * Sticky in-page section navigation for the Studio homepage. Each href is an
- * anchor into a `studioSections` block (see src/lib/studio.ts) — keep the order
- * and ids in sync with that list.
- */
-export const sectionNav: NavItem[] = [
-  { label: "Daten", href: "#daten" },
-  { label: "Grundriss und Ausstattung", href: "#grundriss" },
-  { label: "Öffnungszeiten", href: "#oeffnungszeiten" },
-  { label: "Preise", href: "#preise" },
-];
-
 /** Header right: Instagram, and the booking call to action (→ Kontakt form). */
 export const socials: NavItem[] = [
   { label: "Instagram", href: contact.instagram, external: true },

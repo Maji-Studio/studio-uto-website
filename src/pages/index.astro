@@ -2,7 +2,6 @@
 import GalleryFrame from "@/components/home/GalleryFrame.astro";
 import Logo from "@/components/home/Logo.astro";
 import SiteHeader from "@/components/home/SiteHeader.astro";
-import Facts from "@/components/home/studio/Facts.astro";
 import Intro from "@/components/home/studio/Intro.astro";
 import Outro from "@/components/home/studio/Outro.astro";
 import Tarife from "@/components/home/studio/Tarife.astro";
@@ -19,11 +18,11 @@ import { site } from "@/lib/site";
     <GalleryFrame />
 
     {/*
-      Studio fact sheet, past the fold: the chrome intro (U → T → O), the facts
-      between the O slabs, the prices, and the reel revealing more photos.
+      Past the fold: the chrome intro (U → T → O), whose labels link into the
+      full fact sheet on /information/, the prices, and the reel revealing more
+      photos.
     */}
     <Intro />
-    <Facts />
     <Tarife />
     <Outro />
 
