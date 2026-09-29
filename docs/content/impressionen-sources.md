@@ -33,3 +33,18 @@ for reversibility but are no longer selected by the gallery.
 ## Nicolas Burri — AKRIS
 
 Existing generated placeholder images, unchanged by this content update.
+
+# Studio imagery and Information copy
+
+Pulled from the live site on 2026-09-29.
+
+- `src/assets/studio/{sicht-von-der-kueche,shooting-flaeche,panorama,mittagslicht,boden,kaffeemaschine}.jpg`:
+  the 2025 studio shoot on studio-uto.ch (full 2500 px originals from the Webflow CDN).
+  `image-1.jpg` / `image-2.jpg` are older 1080 px crops of two of these, still used by the page transition reel.
+- `src/assets/studio/grundriss.png`: floor plan from studio-uto.ch. It labels the room
+  12.5 × 6.5 m, while the fact sheet says 14 × 7 m (whole studio with kitchen). Confirm with the studio.
+- Beteiligte + websites: studio-uto.ch/kontakt (schema.org `member` list).
+- Instagram: https://www.instagram.com/studio.uto/
+- Information page (`src/lib/information.ts`): studio description from the live site's
+  LocalBusiness metadata; Atelier Uto cooperative text and "Tram, Bus und Bahnhof sind ganz
+  in der Nähe" from the Atelier Uto listing on raumboerse-zh.ch.

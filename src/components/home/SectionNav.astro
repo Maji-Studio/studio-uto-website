@@ -1,18 +1,27 @@
 ---
-import { sectionNav } from "@/lib/site";
+import { type NavItem, sectionNav } from "@/lib/site";
+
+interface Props {
+  /** In-page anchors ("#id"). Defaults to the homepage fact-sheet sections. */
+  items?: NavItem[];
+}
+
+const { items = sectionNav } = Astro.props;
 ---
 
-{/*
- * In-page section navigation. Lives in normal flow directly below the gallery
- * hero and rides up to `position: sticky; top: 0` once the studio content
- * scrolls under it — chips only, no field/bar behind them, so content scrolls
- * freely in the gaps. A scroll-spy marks the section currently under the chips
- * with `.chip--active` — the same light-grey "current" treatment the header
- * uses for the live page.
- */}
-<nav class="section-nav" aria-label="Studio-Informationen" data-section-nav>
+{
+  /*
+   * In-page section navigation. Lives in normal flow directly below the gallery
+   * hero and rides up to `position: sticky; top: 0` once the studio content
+   * scrolls under it — chips only, no field/bar behind them, so content scrolls
+   * freely in the gaps. A scroll-spy marks the section currently under the chips
+   * with `.chip--active` — the same light-grey "current" treatment the header
+   * uses for the live page.
+   */
+}
+<nav class="section-nav" aria-label="Abschnitte" data-section-nav>
   {
-    sectionNav.map((item) => (
+    items.map((item) => (
       <a class="chip" href={item.href} data-label={item.label}>
         {item.label}
       </a>
@@ -59,6 +68,20 @@ import { sectionNav } from "@/lib/site";
       { rootMargin: "-18% 0px -78% 0px", threshold: 0 },
     );
     for (const section of sections) spy.observe(section);
+
+    // A short last section never reaches the active line before the page runs
+    // out; once scrolled to the bottom, hand it the active state.
+    const last = sections.at(-1);
+    window.addEventListener(
+      "scroll",
+      () => {
+        const atBottom =
+          window.innerHeight + window.scrollY >=
+          document.documentElement.scrollHeight - 2;
+        if (atBottom && last) setActive(last.id);
+      },
+      { passive: true },
+    );
   }
 </script>
 

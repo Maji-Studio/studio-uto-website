@@ -4,6 +4,7 @@ import Logo from "@/components/home/Logo.astro";
 import SectionNav from "@/components/home/SectionNav.astro";
 import SiteHeader from "@/components/home/SiteHeader.astro";
 import StudioInfo from "@/components/home/StudioInfo.astro";
+import Lightbox from "@/components/impressionen/Lightbox.astro";
 import SiteFooter from "@/components/site/SiteFooter.astro";
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { site } from "@/lib/site";
@@ -21,6 +22,9 @@ import { site } from "@/lib/site";
 
     <SiteFooter />
   </main>
+
+  {/* Viewer for the hero's "Take a tour" and the Grundriss photos. */}
+  <Lightbox />
 </BaseLayout>
 
 <style>

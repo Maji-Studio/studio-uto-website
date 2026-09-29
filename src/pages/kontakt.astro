@@ -25,7 +25,15 @@ const description =
           Studio Uto Beteiligte
         </h2>
         <ul class="people__list" role="list">
-          {beteiligte.map((person) => <li class="people__name">{person}</li>)}
+          {
+            beteiligte.map((person) => (
+              <li class="people__name">
+                <a href={person.url} target="_blank" rel="noopener noreferrer">
+                  {person.name}
+                </a>
+              </li>
+            ))
+          }
         </ul>
       </section>
 
@@ -105,6 +113,20 @@ const description =
 
   .people__name {
     color: #2c2c2a;
+  }
+
+  /* Each name links out to the person's own site; underline on hover only. */
+  .people__name a {
+    color: inherit;
+    text-decoration: none;
+    text-underline-offset: 0.12em;
+    text-decoration-thickness: 1px;
+  }
+
+  .people__name a:hover,
+  .people__name a:focus-visible {
+    color: var(--color-ink);
+    text-decoration: underline;
   }
 
   .people__list {

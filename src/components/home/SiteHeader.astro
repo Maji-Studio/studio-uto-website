@@ -64,7 +64,13 @@ const today = formatGermanDate(now);
   <div class="site-header__group site-header__socials">
     {
       socials.map((item) => (
-        <a class="chip" href={item.href} data-label={item.label}>
+        <a
+          class="chip"
+          href={item.href}
+          data-label={item.label}
+          target={item.external ? "_blank" : undefined}
+          rel={item.external ? "noopener noreferrer" : undefined}
+        >
           {item.label}
         </a>
       ))

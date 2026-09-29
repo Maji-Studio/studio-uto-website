@@ -7,6 +7,8 @@ export const site = {
 /** Single source of truth for contact details (header social + page copy). */
 export const contact = {
   email: "info@atelier-uto.ch",
+  instagram: "https://www.instagram.com/studio.uto/",
+  instagramHandle: "@studio.uto",
 };
 
 /** Studio postal address — used on the Kontakt page and in meta. */
@@ -16,29 +18,43 @@ export const address = {
   city: "8048 Zürich",
 } as const;
 
+export interface Person {
+  name: string;
+  /** Personal website / portfolio, opened in a new tab. */
+  url: string;
+}
+
 /**
- * The people behind Studio Uto ("Beteiligte"), shown on the Kontakt page.
- * Edit this list to add or remove collaborators; order is preserved.
+ * The people behind Studio Uto ("Beteiligte"), shown on the Kontakt page, each
+ * linked to their own site. Source: studio-uto.ch/kontakt. Order is preserved.
  */
-export const beteiligte: string[] = [
-  "Cyrill Matter",
-  "Nino Valpiani",
-  "Lynn Grütter",
-  "Oliver Schmocker",
-  "Matthias Kappeler",
-  "Nadine Kägi",
+export const beteiligte: Person[] = [
+  { name: "Cyrill Matter", url: "https://cyrillmatter.com/" },
+  { name: "Lynn Grütter", url: "https://www.lynngruetter.com/" },
+  { name: "Oliver Schmocker", url: "https://oliverschmocker.com/" },
+  { name: "Matthias Kappeler", url: "https://matthiaskappeler.ch/" },
+  { name: "Nadine Kägi", url: "https://nadinekgi.pixieset.com/" },
+  { name: "Nicolas Burri", url: "https://www.nicolasburristudio.com/" },
+  { name: "Nino Valpiani", url: "https://ninovalpiani.com/" },
+  { name: "Sam Heuberger", url: "https://www.samheuberger.com/" },
+  { name: "Sven Probst", url: "https://svenprobst.ch/" },
+  { name: "Timon Flükiger", url: "https://timonfluekiger.com/" },
+  { name: "Tom Gibbons", url: "https://tom-gibbons.com/" },
+  { name: "Yonca Ergen", url: "https://yoncaergen.com/" },
 ];
 
 export interface NavItem {
   label: string;
   href: string;
+  /** Off-site link — opens in a new tab. */
+  external?: boolean;
 }
 
-/** Primary navigation (header centre). Remaining destinations land in later phases. */
+/** Primary navigation (header centre). Equipment is still a placeholder ("#"). */
 export const primaryNav: NavItem[] = [
   { label: "Studio", href: "/" },
   { label: "Impressionen", href: "/impressionen/" },
-  { label: "Information", href: "#" },
+  { label: "Information", href: "/information/" },
   { label: "Equipment", href: "#" },
   { label: "Kontakt", href: "/kontakt/" },
 ];
@@ -55,8 +71,8 @@ export const sectionNav: NavItem[] = [
   { label: "Preise", href: "#preise" },
 ];
 
-/** Social / contact links (header right). Real targets land in a later phase. */
+/** Header right: Instagram, and the booking call to action (→ Kontakt form). */
 export const socials: NavItem[] = [
-  { label: "Instagram", href: "#" },
-  { label: "Email", href: `mailto:${contact.email}` },
+  { label: "Instagram", href: contact.instagram, external: true },
+  { label: "Jetzt anfragen", href: "/kontakt/" },
 ];

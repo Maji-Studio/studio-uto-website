@@ -6,6 +6,7 @@ import { fileURLToPath, URL } from "node:url";
 export default defineConfig({
   output: "static",
   integrations: [mdx(), react()],
+  devToolbar: { enabled: false },
   vite: {
     resolve: {
       alias: {

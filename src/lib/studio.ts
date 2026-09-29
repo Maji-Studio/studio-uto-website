@@ -1,21 +1,89 @@
+import type { ImageMetadata } from "astro";
+
+import boden from "@/assets/studio/boden.jpg";
+import grundriss from "@/assets/studio/grundriss.png";
+import kaffeemaschine from "@/assets/studio/kaffeemaschine.jpg";
+import mittagslicht from "@/assets/studio/mittagslicht.jpg";
+import panorama from "@/assets/studio/panorama.jpg";
+import shootingFlaeche from "@/assets/studio/shooting-flaeche.jpg";
+import sichtVonDerKueche from "@/assets/studio/sicht-von-der-kueche.jpg";
+
 /**
  * Studio fact-sheet content shown on the homepage ("/"), sourced from
  * studio-uto.ch. The four sections line up 1:1 with `sectionNav` in site.ts —
  * each `id` is the in-page anchor the sticky section nav scrolls to.
  *
- * Two block shapes cover every row on the page:
- *  - `pairs`  — a term/detail line (dimension → size, service → price), set as a
- *               hairline-ruled list.
- *  - `lines`  — a plain enumerated list (equipment, amenities, opening hours).
+ * Block shapes (a block may combine several, rendered in this order):
+ *  - `text`    — running paragraphs.
+ *  - `pairs`   — a term/detail line (dimension → size, service → price), set as a
+ *                hairline-ruled list.
+ *  - `lines`   — a plain enumerated list (equipment, amenities, opening hours).
+ *  - `links`   — like `pairs`, but each row is a link (label → destination).
+ *  - `figure`  — a single image at column width (the floor plan).
+ *  - `gallery` — a thumbnail grid that opens into the Lightbox.
  * A block may carry a trailing `note` (the muted caveat under a list).
  */
+export interface StudioImage {
+  src: ImageMetadata;
+  alt: string;
+}
+
+export interface StudioLink {
+  label: string;
+  /** Right-hand text — the destination as the visitor will recognise it. */
+  detail: string;
+  href: string;
+  /** Off-site link — opens in a new tab and carries a ↗. */
+  external?: boolean;
+}
+
+/**
+ * Studio photography (studio-uto.ch, 2025 shoot). The first photo is the
+ * homepage hero; the whole list is the "Take a tour" sequence and the
+ * Grundriss gallery, in this order.
+ */
+export const studioPhotos: readonly StudioImage[] = [
+  {
+    src: sichtVonDerKueche,
+    alt: "Shooting-Fläche, Sicht von der Küche aus — weisse Wand, raumhohe Fenster und Moltonvorhänge.",
+  },
+  {
+    src: shootingFlaeche,
+    alt: "Shooting-Fläche mit Blick Richtung Küche und Besprechungstisch.",
+  },
+  {
+    src: panorama,
+    alt: "Panorama des Studios mit Lichttraversen, Fensterfront und Betonboden.",
+  },
+  {
+    src: mittagslicht,
+    alt: "Shooting-Fläche mit natürlichem Licht am Mittag.",
+  },
+  {
+    src: boden,
+    alt: "Detail des abgeschliffenen Betonbodens in Terrazzo-Optik.",
+  },
+  {
+    src: kaffeemaschine,
+    alt: "Kaffeemaschine und Pflanzen am Fenster.",
+  },
+];
+
 export interface StudioBlock {
   /** Small tracked label above the block (e.g. "Dimensionen"). Optional. */
   label?: string;
+  /** Running paragraphs. */
+  text?: readonly string[];
   /** Term/detail rows — left term, right detail. */
   pairs?: readonly (readonly [term: string, detail: string])[];
   /** Simple enumerated lines. */
   lines?: readonly string[];
+  /** Link rows — label left, destination right. */
+  links?: readonly StudioLink[];
+  /** One image at column width. */
+  figure?: StudioImage;
+  /** Thumbnail grid opening into the Lightbox under `name`. */
+  gallery?: { name: string; images: readonly StudioImage[] };
   /** Muted caveat shown beneath the block. */
   note?: string;
 }
@@ -25,6 +93,8 @@ export interface StudioSection {
   id: string;
   /** Section heading, set large in the left column. */
   title: string;
+  /** Short label for the sticky section nav, when it differs from `title`. */
+  navLabel?: string;
   blocks: readonly StudioBlock[];
 }
 
@@ -84,6 +154,17 @@ export const studioSections: readonly StudioSection[] = [
           "Garderobe mit Trennwänden im Raum",
         ],
       },
+      {
+        label: "Grundriss",
+        figure: {
+          src: grundriss,
+          alt: "Grundriss des 3. Stocks: Studio Uto, WC, Treppenhaus und Warenlift. Der Vorraum gehört nicht zum Studio.",
+        },
+      },
+      {
+        label: "Bilder",
+        gallery: { name: "Studio Uto", images: studioPhotos },
+      },
     ],
   },
   {
@@ -98,7 +179,8 @@ export const studioSections: readonly StudioSection[] = [
         label: "Anfahrt, Parking & Anlieferung",
         lines: [
           "Einfahrt von Flüelastrasse, 3. Stock «Atelier Uto»",
-          "Ein Parkplatz auf der Hinterseite des Gebäudes (ab März)",
+          "Ein Parkplatz auf der Hinterseite des Gebäudes (ab März), beschildert mit «Atelier Uto»",
+          "Weitere Besucherparkplätze auf dem Areal",
           "Warenlift ebenerdig in den 3. Stock",
         ],
       },
@@ -116,6 +198,11 @@ export const studioSections: readonly StudioSection[] = [
           ["Separater Styling- / H&M-Raum", "CHF 100"],
         ],
         note: "Preise sind exklusive Mehrwertsteuer.",
+      },
+      {
+        links: [
+          { label: "Buchung", detail: "Jetzt anfragen", href: "/kontakt/" },
+        ],
       },
     ],
   },

@@ -1,30 +1,68 @@
 ---
-import { Image } from "astro:assets";
+import LightboxThumb from "@/components/impressionen/LightboxThumb.astro";
+import { studioPhotos } from "@/lib/studio";
 
-import studio from "@/assets/studio/image-1.jpg";
+/*
+ * Homepage hero. The frame is also a Lightbox gallery: the visible image is the
+ * first slide and the rest of the studio photos ride along hidden, so "Take a
+ * tour" (or a click on the image) opens the full walk-through from the hero.
+ * Without JS the tour link falls back to the Grundriss section and its photos.
+ */
+const [hero, ...rest] = studioPhotos;
+const total = studioPhotos.length;
 ---
 
-<figure class="gallery">
-  <Image
-    class="gallery__image"
-    src={studio}
-    alt="Studio Uto — leerer Studioraum mit raumhohen Fenstern und Betonboden."
+<figure class="gallery" data-lightbox-gallery data-name="Studio Uto">
+  <LightboxThumb
+    src={hero.src}
+    alt={hero.alt}
+    label={`Studio-Rundgang öffnen (${total} Bilder)`}
     widths={[640, 960, 1280]}
     sizes="(max-width: 900px) 92vw, 65vw"
     loading="eager"
   />
+  {
+    rest.map((image, i) => (
+      <LightboxThumb
+        src={image.src}
+        alt={image.alt}
+        label={`Bild ${i + 2} von ${total} öffnen`}
+        hidden
+      />
+    ))
+  }
 
   <figcaption class="gallery__caption">
-    <a class="gallery__tour chip" href="#" data-label="Take a tour">Take a tour</a>
+    <a
+      class="gallery__tour chip"
+      href="#grundriss"
+      data-label="Take a tour"
+      data-tour>Take a tour</a
+    >
   </figcaption>
 
   <span class="gallery__reframe" aria-hidden="true">
     <svg viewBox="0 0 44 20" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M2 2 L2 12 M2 2 L12 2" />
-      <path d="M42 2 L42 12 M42 2 L32 2" />
+      <path d="M2 2 L2 12 M2 2 L12 2"></path>
+      <path d="M42 2 L42 12 M42 2 L32 2"></path>
     </svg>
   </span>
 </figure>
+
+<script>
+  // "Take a tour" opens the Lightbox on the hero (first slide) instead of
+  // jumping to the Grundriss photos.
+  document.querySelectorAll<HTMLElement>("[data-tour]").forEach((link) => {
+    link.addEventListener("click", (event) => {
+      const first = link
+        .closest("[data-lightbox-gallery]")
+        ?.querySelector<HTMLElement>("[data-lightbox-open]");
+      if (!first) return;
+      event.preventDefault();
+      first.click();
+    });
+  });
+</script>
 
 <style>
   .gallery {
@@ -34,7 +72,7 @@ import studio from "@/assets/studio/image-1.jpg";
     margin: clamp(28px, 6vh, 72px) auto 0;
   }
 
-  .gallery__image {
+  .gallery :global(.lb-thumb__image) {
     width: 100%;
     height: clamp(320px, 52vh, 600px);
     object-fit: cover;
@@ -75,6 +113,7 @@ import studio from "@/assets/studio/image-1.jpg";
     width: 44px;
     color: rgba(255, 255, 255, 0.92);
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+    pointer-events: none;
   }
 
   .gallery__reframe svg {

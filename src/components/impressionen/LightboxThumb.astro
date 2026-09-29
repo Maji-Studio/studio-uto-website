@@ -1,0 +1,88 @@
+---
+import type { ImageMetadata } from "astro";
+import { getImage, Image } from "astro:assets";
+
+/*
+ * One thumbnail that opens into the page's Lightbox. Place it inside an element
+ * marked `data-lightbox-gallery` (with `data-name`, optionally `data-client`);
+ * every thumb in that element becomes one slide, in DOM order. The large
+ * renditions ride along as data attributes, exactly like EntityRow's buttons.
+ *
+ * Sizing is left to the parent: target `.lb-thumb` / `.lb-thumb__image` with
+ * `:global()` from the parent's scoped styles.
+ */
+interface Props {
+  src: ImageMetadata;
+  alt: string;
+  /** Accessible name for the button, e.g. "Bild 2 von 6 öffnen". */
+  label: string;
+  widths?: number[];
+  sizes?: string;
+  loading?: "eager" | "lazy";
+  /** Keep the slide in the gallery but out of view (e.g. the hero's tour). */
+  hidden?: boolean;
+}
+
+const {
+  src,
+  alt,
+  label,
+  widths = [240, 360, 480],
+  sizes = "(max-width: 720px) 30vw, 16vw",
+  loading = "lazy",
+  hidden = false,
+} = Astro.props;
+
+const full = await getImage({
+  src,
+  widths: [1280, 1920, 2560],
+  format: "webp",
+});
+---
+
+<button
+  class="lb-thumb"
+  type="button"
+  data-lightbox-open
+  data-src={full.src}
+  data-srcset={full.srcSet.attribute}
+  data-width={src.width}
+  data-height={src.height}
+  data-alt={alt}
+  aria-label={label}
+  hidden={hidden}
+>
+  <Image
+    class="lb-thumb__image"
+    src={src}
+    alt={alt}
+    widths={widths}
+    sizes={sizes}
+    loading={loading}
+  />
+</button>
+
+<style>
+  .lb-thumb {
+    display: block;
+    width: 100%;
+    border: 0;
+    padding: 0;
+    background: none;
+    cursor: zoom-in;
+  }
+
+  .lb-thumb[hidden] {
+    display: none;
+  }
+
+  .lb-thumb:focus-visible {
+    outline-offset: -2px;
+  }
+
+  .lb-thumb__image {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+</style>
