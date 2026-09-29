@@ -4,9 +4,8 @@
  * EntityRow on the page opens into it (see the `data-lightbox-*` hooks there).
  *
  * Layout mirrors an entity row, blown up to the viewport and inverted to black:
- * a full-width hairline, name + client on the left, close on the right, the
- * image as large as fits below at its own ratio, and a prev/next bar along the
- * bottom. The two arrows
+ * name + client on the left, count and close on the right, the image as large
+ * as fits below at its own ratio, and a prev/next bar along the bottom. The two arrows
  * meet in the middle, each with its half of the width as hover area; hovering
  * one sends it round a cylinder into the page (see src/lib/cylinder-arrow.ts).
  *
@@ -21,7 +20,6 @@
 
 <dialog class="lightbox" data-lightbox aria-labelledby="lightbox-name">
   <header class="lightbox__bar">
-    <span class="lightbox__rule" aria-hidden="true"></span>
     <div class="lightbox__meta">
       <p class="lightbox__name" id="lightbox-name" data-lightbox-name></p>
       <p class="lightbox__client" data-lightbox-client></p>
@@ -97,15 +95,14 @@
     let steppingSession: number | null = null;
     const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
-    // The viewer's image, divider and title carry fixed view-transition-names
-    // (lb-image / lb-rule / lb-title, see the CSS). Their partners on the page —
-    // the current thumbnail and the row's divider and title — borrow the same
+    // The viewer's image and title carry fixed view-transition-names
+    // (lb-image / lb-title, see the CSS). Their partners on the page — the
+    // current thumbnail and the row's title — borrow the same
     // names for the snapshot on the page side, so each pair morphs into the
     // other. Exactly one element carries a name in each snapshot.
     type Pairs = [HTMLElement | null, string][];
     const pagePartners = (): Pairs => [
       [slides[index].thumb, "lb-image"],
-      [gallery!.querySelector("[data-lightbox-rule]"), "lb-rule"],
       [gallery!.querySelector("[data-lightbox-title]"), "lb-title"],
     ];
     const setNames = (pairs: Pairs, on: boolean) => {
@@ -462,7 +459,7 @@
     max-height: none;
     margin: 0;
     border: 0;
-    padding: clamp(6px, 1vh, 12px) var(--page-pad) var(--page-pad);
+    padding: var(--page-pad);
     background: var(--color-ink);
     color: var(--color-paper);
     /* Own snapshot, so it can rise over the page (see the global rules below). */
@@ -479,22 +476,13 @@
     background: transparent;
   }
 
-  /* Entity-row header, stretched: the hairline now runs the full width. */
+  /* Entity-row header, stretched to the viewport. */
   .lightbox__bar {
     display: flex;
     flex-wrap: wrap;
     justify-content: space-between;
     align-items: flex-start;
     gap: 10px 16px;
-  }
-
-  /* The hairline is its own element (not a border) so it can morph on its own:
-     the row's half-width divider stretches out to this full-width one. */
-  .lightbox__rule {
-    flex: 1 0 100%;
-    height: 1px;
-    background: currentColor;
-    view-transition-name: lb-rule;
   }
 
   .lightbox__meta {
@@ -515,6 +503,14 @@
   .lightbox__actions {
     display: flex;
     gap: clamp(16px, 3vw, 48px);
+  }
+
+  /* First line trimmed to the caps, so the type sits exactly one page-pad
+     from the top edge, like the frame on the other three sides. */
+  .lightbox__name,
+  .lightbox__count,
+  .lightbox__close {
+    text-box: trim-start cap alphabetic;
   }
 
   .lightbox__count {
@@ -609,8 +605,8 @@
     visibility: hidden;
   }
 
-  /* Same for the row's divider and title, which move up into the viewer. */
-  [data-lightbox-active] :is([data-lightbox-rule], [data-lightbox-title]) {
+  /* Same for the row's title, which moves up into the viewer. */
+  [data-lightbox-active] [data-lightbox-title] {
     visibility: hidden;
   }
 
@@ -636,42 +632,28 @@
   }
 
   html[data-lb-vt]::view-transition-group(lb-image),
-  html[data-lb-vt]::view-transition-group(lb-rule),
   html[data-lb-vt]::view-transition-group(lb-title) {
     z-index: 11;
     animation-duration: 560ms;
     animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  /* Divider: stretch to the box (default snapshot sizing would thicken the
-     line in proportion as it widens). Its colour flips black → white along
-     the way. */
-  html[data-lb-vt]::view-transition-old(lb-rule),
-  html[data-lb-vt]::view-transition-new(lb-rule) {
-    width: 100%;
-    height: 100%;
-  }
-
-  /* Divider and title flip colour (black on the page, white in the viewer)
-     with a quick swap timed to the background behind them rather than a slow
-     cross-fade, so they never go dim grey mid-flight: early on open (the black
-     rises under them at once), late on close (the page shows through last). */
-  html[data-lb-vt="open"]::view-transition-old(lb-rule),
+  /* The title flips colour (black on the page, white in the viewer) with a
+     quick swap timed to the background behind it rather than a slow
+     cross-fade, so it never goes dim grey mid-flight: early on open (the black
+     rises under it at once), late on close (the page shows through last). */
   html[data-lb-vt="open"]::view-transition-old(lb-title) {
     animation: lb-fade-out 140ms linear both;
   }
 
-  html[data-lb-vt="open"]::view-transition-new(lb-rule),
   html[data-lb-vt="open"]::view-transition-new(lb-title) {
     animation: lb-fade-in 140ms linear both;
   }
 
-  html[data-lb-vt="close"]::view-transition-old(lb-rule),
   html[data-lb-vt="close"]::view-transition-old(lb-title) {
     animation: lb-fade-out 100ms linear 230ms both;
   }
 
-  html[data-lb-vt="close"]::view-transition-new(lb-rule),
   html[data-lb-vt="close"]::view-transition-new(lb-title) {
     animation: lb-fade-in 100ms linear 230ms both;
   }
@@ -732,7 +714,6 @@
      frame continues to ease into its new aspect ratio. The header and arrows
      remain steady and live throughout. */
   html[data-lb-vt="step"]::view-transition-group(lightbox),
-  html[data-lb-vt="step"]::view-transition-group(lb-rule),
   html[data-lb-vt="step"]::view-transition-group(lb-title),
   html[data-lb-vt="step"]::view-transition-old(*),
   html[data-lb-vt="step"]::view-transition-new(*) {

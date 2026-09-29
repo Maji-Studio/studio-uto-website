@@ -5,9 +5,11 @@ import type { Impression } from "@/lib/impressionen";
 
 interface Props {
   entity: Impression;
+  /** Position on the page, 1-based; set as the row's number. */
+  index: number;
 }
 
-const { entity } = Astro.props;
+const { entity, index } = Astro.props;
 
 // Used when an image carries no explicit alt text.
 const fallbackAlt = `Arbeit von ${entity.name}${
@@ -31,10 +33,12 @@ const full = await Promise.all(
 >
   <header class="entity__meta">
     {
-      /* Divider and title are separate elements so the lightbox can lift them
-        into its header: the title moves up, the divider stretches full width. */
+      /* The number stays on the page; only the title lifts into the lightbox
+        header, so the number is kept out of the morphing element. */
     }
-    <span class="entity__rule" data-lightbox-rule aria-hidden="true"></span>
+    <span class="entity__index" aria-hidden="true"
+      >{String(index).padStart(2, "0")}</span
+    >
     <div class="entity__title" data-lightbox-title>
       <h2 class="entity__name">{entity.name}</h2>
       {entity.client && <p class="entity__client">for {entity.client}</p>}
@@ -73,10 +77,10 @@ const full = await Promise.all(
 
 <style>
   /*
-   * Two equal halves with an 8px gutter: collaborator meta (with its top
-   * hairline) on the left, image grid on the right. The hairline runs the full
-   * left column and the 8px column gap separates it from the gallery. The images
-   * themselves sit flush, with no gap between them.
+   * Two equal halves with an 8px gutter: collaborator meta on the left, image
+   * grid on the right. No rule between rows: each row opens with its number,
+   * set like the lightbox's slide count, and the type's cap height sits on the
+   * images' top edge. The images themselves sit flush, with no gap between them.
    */
   .entity {
     --impression-gap: 8px;
@@ -86,11 +90,31 @@ const full = await Promise.all(
     align-items: start;
   }
 
-  .entity__rule {
-    display: block;
-    height: 1px;
-    margin-bottom: 10px;
-    background: var(--color-ink);
+  .entity__meta {
+    display: grid;
+    grid-template-columns: 4ch minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .entity__index,
+  .entity__name,
+  .entity__client {
+    font-size: clamp(1.05rem, 1.6vw, 1.4rem);
+    font-weight: 400;
+    line-height: 1.18;
+    letter-spacing: 0.005em;
+  }
+
+  .entity__index {
+    opacity: 0.55;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Trim the first line's leading so the caps, not the line box, meet the
+     top of the images. */
+  .entity__index,
+  .entity__name {
+    text-box: trim-start cap alphabetic;
   }
 
   /* Sized to its text, exactly like the lightbox title it morphs into, so the
@@ -103,10 +127,6 @@ const full = await Promise.all(
   .entity__name,
   .entity__client {
     margin: 0;
-    font-size: clamp(1.05rem, 1.6vw, 1.4rem);
-    font-weight: 400;
-    line-height: 1.18;
-    letter-spacing: 0.005em;
   }
 
   .entity__grid {
