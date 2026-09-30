@@ -709,12 +709,10 @@
     animation: lb-lift 420ms cubic-bezier(0.22, 1, 0.36, 1) 160ms both;
   }
 
-  /* Step: both images cover the same moving mask without distorting their
-     proportions. The new image dissolves in over the old one (which stays
-     opaque underneath, so there is no dip to black) for about as long as the
-     frame takes to ease into its new aspect ratio. An ease-out dissolve is
-     mostly done within a few frames and reads as a cut, so this one eases
-     in and out. The header and arrows remain steady and live throughout. */
+  /* Step: no opacity fade. The new image is there at once, covering the
+     mask without distortion while the frame eases into its new aspect ratio;
+     the old image is dropped outright rather than blended. The header and
+     arrows remain steady and live throughout. */
   html[data-lb-vt="step"]::view-transition-group(lightbox),
   html[data-lb-vt="step"]::view-transition-group(lb-title),
   html[data-lb-vt="step"]::view-transition-old(*),
@@ -728,12 +726,7 @@
   }
 
   html[data-lb-vt="step"]::view-transition-old(lb-image) {
-    mix-blend-mode: normal;
-  }
-
-  html[data-lb-vt="step"]::view-transition-new(lb-image) {
-    mix-blend-mode: normal;
-    animation: lb-fade-in 420ms cubic-bezier(0.45, 0, 0.25, 1) both;
+    opacity: 0;
   }
 
   @keyframes lb-fade-out {
