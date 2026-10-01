@@ -6,6 +6,7 @@ The reference for the Studio Uto design system. It covers tokens, type, componen
 - **Source of truth for style:** `src/styles/global.css`, `src/components/home/SiteHeader.astro`, `src/components/home/Logo.astro`, `src/components/home/studio/Facts.astro`, `src/components/impressionen/EntityRow.astro`, `src/pages/kontakt.astro`
 - **Source of truth for facts:** `src/lib/studio.ts`, `src/lib/information.ts`, `src/lib/site.ts`. Never invent numbers.
 - **Decisions:** [ADR 0002](adr/0002-figma-design-system-website-style.md)
+- **Shareable page:** https://claude.ai/artifact/5vtMAX3ixK4L7cjR959BrW. It is a browsable mirror of this file with tokens, type specimens, component previews, the glyphs and the wordmark. When you change tokens, components or brand rules here, update the matching files in that artifact too: `project/tokens.json`, `project/README.md`, `project/components/<Name>/`. This file wins if the two disagree.
 
 ## Principles
 
@@ -180,3 +181,4 @@ Retired, kept only for the old decks: `Alt / Meta Bar`, `Alt / Rail`, `Alt / Row
   - Tokens added: `chip-active`, `caption`, and the website space tokens. Grid space tokens deleted.
   - Grid components and styles retired to `Alt`.
   - Wordmark rules now come from `Logo.astro` and `SiteHeader.astro`.
+  - Published the shareable design system page (artifact 5vtMAX3ixK4L7cjR959BrW).
