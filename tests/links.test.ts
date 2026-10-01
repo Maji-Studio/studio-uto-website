@@ -8,11 +8,12 @@ import { studioSections } from "@/lib/studio";
 
 const pagesDir = fileURLToPath(new URL("../src/pages/", import.meta.url));
 
-// Anchor ids rendered on each page, by pathname. The homepage keeps only the
-// prices (Tarife); the full fact sheet lives on /information/.
+// Anchor ids rendered on each page, by pathname. The full fact sheet lives on
+// /information/; the Tarife prices sit on the unlinked /sketch/ page.
 const anchors: Record<string, string[]> = {
-  "/": ["preise"],
+  "/": [],
   "/information/": informationSections.map((s) => s.id),
+  "/sketch/": ["preise"],
 };
 
 function pageExists(pathname: string) {

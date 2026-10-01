@@ -1,7 +1,7 @@
 ---
 // Studio fact sheet, part 4 of 4: the page-transition reel, used once at the
-// end: scrolling past the prices a black panel rises bottom-up carrying
-// the canvas photo reel (12 fps, motion trail, hard cuts), then a paper "page"
+// end: right after the prices a black panel scrolls in carrying the canvas
+// photo reel (12 fps, motion trail, hard cuts) and pins, then a paper "page"
 // rises over it revealing a gapless photo grid (/impressionen/ grammar).
 // Photos here appear nowhere else on the homepage.
 import { Image, getImage } from "astro:assets";
@@ -101,12 +101,7 @@ const reelSrcs = (
     const range = (v: number, a: number, b: number) => clamp01((v - a) / (b - a));
 
     let raf = 0;
-    let last = [-1, -1];
-
-    // P: 0 when the stage pins → 1 when it lets go. Track = 3 viewport heights.
-    function pos() {
-      return clamp01(-track.getBoundingClientRect().top / (2 * innerHeight));
-    }
+    let last = -1;
 
     function set(el: HTMLElement, e: number) {
       el.style.clipPath = e >= 1 ? "none" : `inset(${(1 - e) * 100}% 0 0 0)`;
@@ -115,15 +110,19 @@ const reelSrcs = (
 
     function apply() {
       raf = 0;
-      const P = pos();
-      const eBand = ease(range(P, 0.04, 0.34));
-      const ePage = ease(range(P, 0.5, 0.82));
-      if (last[0] !== eBand) set(band, eBand);
-      if (last[1] !== ePage) set(page, ePage);
-      last = [eBand, ePage];
+      const r = track.getBoundingClientRect();
+      // P: 0 when the stage pins → 1 when it lets go. The band needs no reveal
+      // of its own: it scrolls in straight after the prices, so there is no
+      // blank screen while the stage pins.
+      const P = clamp01(-r.top / Math.max(1, r.height - innerHeight));
+      const ePage = ease(range(P, 0.25, 0.75));
+      if (last !== ePage) set(page, ePage);
+      last = ePage;
       page.style.pointerEvents = ePage < 1 ? "none" : "";
-      // The reel plays while the band is up and the page hasn't covered it.
-      setReel(eBand > 0 && ePage < 1);
+      // Fetch the reel a screen early so the band arrives with photos on it.
+      if (r.top < 2 * innerHeight) loadImgs();
+      // The reel plays while the band is on screen and the page hasn't covered it.
+      setReel(r.top < innerHeight && r.bottom > 0 && ePage < 1);
     }
     const schedule = () => {
       if (!raf) raf = requestAnimationFrame(apply);
@@ -145,6 +144,9 @@ const reelSrcs = (
 
     function loadImgs() {
       if (imgs.length) return;
+      // The grid's lazy photos sit under a clip; fetch them now too, so the
+      // page doesn't rise over empty cells.
+      for (const img of page.querySelectorAll("img")) img.loading = "eager";
       let srcs: string[] = [];
       try {
         srcs = JSON.parse(root.dataset.reel ?? "[]");
@@ -216,12 +218,10 @@ const reelSrcs = (
       root.classList.toggle("is-live", on);
       if (!on) {
         setReel(false);
-        for (const el of [band, page]) {
-          el.style.clipPath = "";
-          el.style.visibility = "";
-        }
+        page.style.clipPath = "";
+        page.style.visibility = "";
         page.style.pointerEvents = "";
-        last = [-1, -1];
+        last = -1;
         return;
       }
       apply();
@@ -243,7 +243,7 @@ const reelSrcs = (
 <style>
   /* ---- base = static fallback: chip + gapless grid, no reel ---- */
   .outro {
-    margin: clamp(72px, 14vh, 160px) calc(-1 * var(--page-pad)) 0;
+    margin: clamp(56px, 10vh, 120px) calc(-1 * var(--page-pad)) 0;
     color: var(--color-ink);
   }
 
@@ -287,10 +287,10 @@ const reelSrcs = (
     }
   }
 
-  /* ---- live: pinned stage, band then page rise bottom-up with scroll ---- */
+  /* ---- live: the band scrolls in and pins, then the page rises over it ---- */
   .outro.is-live .outro-track {
-    height: 300vh;
-    height: 300svh;
+    height: 250vh;
+    height: 250svh;
   }
 
   .outro.is-live .outro-stage {
@@ -305,6 +305,9 @@ const reelSrcs = (
   .outro.is-live .outro-page {
     position: absolute;
     inset: 0;
+  }
+
+  .outro.is-live .outro-page {
     visibility: hidden;
     will-change: clip-path;
   }

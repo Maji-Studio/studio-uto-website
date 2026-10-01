@@ -1,0 +1,44 @@
+---
+import Logo from "@/components/home/Logo.astro";
+import SiteHeader from "@/components/home/SiteHeader.astro";
+import Outro from "@/components/home/studio/Outro.astro";
+import Tarife from "@/components/home/studio/Tarife.astro";
+import SiteFooter from "@/components/site/SiteFooter.astro";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+
+// Parking spot for homepage sections that don't fit there yet: the Tarife
+// prices and the photo reel that followed the chrome intro. Not linked from
+// the navigation and kept out of search.
+---
+
+<BaseLayout
+  title="Sketch"
+  description="Skizzen für die Startseite von Studio Uto."
+  noindex
+>
+  <main id="content" class="sketch">
+    <Logo />
+    <SiteHeader />
+
+    <div class="sketch__body">
+      <Tarife />
+      <Outro />
+    </div>
+
+    <SiteFooter />
+  </main>
+</BaseLayout>
+
+<style>
+  .sketch {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    padding: clamp(6px, 1vh, 12px) var(--page-pad) var(--page-pad);
+  }
+
+  /* On the homepage the chrome intro carried the gap above the prices. */
+  .sketch__body {
+    margin-top: clamp(48px, 10vh, 120px);
+  }
+</style>

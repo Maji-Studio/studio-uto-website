@@ -20,11 +20,7 @@ const description =
     <SiteHeader />
 
     <section class="impressionen__entities" aria-label="Impressionen">
-      {
-        impressionen.map((entity, i) => (
-          <EntityRow entity={entity} index={i + 1} />
-        ))
-      }
+      {impressionen.map((entity) => <EntityRow entity={entity} />)}
     </section>
 
     <section class="collab">

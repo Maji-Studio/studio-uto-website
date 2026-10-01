@@ -35,4 +35,8 @@ The O slabs (`Facts`) are off the homepage. Their content — Daten, Grundriss u
 
 ## Update (2026-09-29): O slabs replaced by numbered headings
 
-The O slabs read as heavy black dividers between sections, so they are gone from `/information/`, along with their photos and scroll script. Each section now opens with a grey section number and its title at display size; Preise lists its prices as ordinary fact lines instead of the homepage's `Tarife`. The number sits in the label column and the title in the text column, both aligned on their cap height, and the space above them separates the sections. The grey number is the same device the Impressionen rows use (`01  Nicolas Burri`), which also dropped their hairline rules. The page has no studio photos now; the homepage hero's tour carries them.
+The O slabs read as heavy black dividers between sections, so they are gone from `/information/`, along with their photos and scroll script. Each section now opens with a grey section number and its title at display size; Preise lists its prices as ordinary fact lines instead of the homepage's `Tarife`. The number sits in the label column and the title in the text column, both aligned on their cap height, and the space above them separates the sections. The Impressionen rows briefly used the same grey number in place of their hairline rules; the rules are back there (2026-10-01), as the identity sheet shows. The page has no studio photos now; the homepage hero's tour carries them.
+
+## Update (2026-10-01): prices and reel parked on /sketch/
+
+`Tarife` and `Outro` didn't fit under the chrome intro yet, so they're off the homepage. They now render on `/sketch/`, which has no nav link and carries `noindex`. The homepage ends on the chrome intro. Hovering the metal itself, not only its labels, now shows a tour photo next to the cursor. The hit test reads the shader's own alpha under the pointer, so empty paper inside the stage never triggers it.

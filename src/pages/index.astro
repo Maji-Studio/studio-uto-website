@@ -3,8 +3,6 @@ import GalleryFrame from "@/components/home/GalleryFrame.astro";
 import Logo from "@/components/home/Logo.astro";
 import SiteHeader from "@/components/home/SiteHeader.astro";
 import Intro from "@/components/home/studio/Intro.astro";
-import Outro from "@/components/home/studio/Outro.astro";
-import Tarife from "@/components/home/studio/Tarife.astro";
 import Lightbox from "@/components/impressionen/Lightbox.astro";
 import SiteFooter from "@/components/site/SiteFooter.astro";
 import BaseLayout from "@/layouts/BaseLayout.astro";
@@ -19,12 +17,10 @@ import { site } from "@/lib/site";
 
     {/*
       Past the fold: the chrome intro (U → T → O), whose labels link into the
-      full fact sheet on /information/, the prices, and the reel revealing more
-      photos.
+      full fact sheet on /information/. The prices and the photo reel that
+      followed it are parked on /sketch/ until they fit.
     */}
     <Intro />
-    <Tarife />
-    <Outro />
 
     <SiteFooter />
   </main>

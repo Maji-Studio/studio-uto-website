@@ -7,7 +7,9 @@
 // ring), extruded as a fat rounded tube; the morph blends the 2D fields with a
 // swell and a ripple so the metal flows rather than crossfades. Black fact
 // labels are scattered around and over it; each links to its section on
-// /information/ and, on hover, shows a small studio photo.
+// /information/ and, on hover, shows a small studio photo. Hovering the metal
+// itself hangs a studio photo off the cursor, cutting to the next one as the
+// pointer travels.
 import type { ImageMetadata } from "astro";
 import { Image } from "astro:assets";
 
@@ -22,6 +24,7 @@ import sichtVonDerKueche from "@/assets/studio/sicht-von-der-kueche.jpg";
 
 import { informationSections } from "@/lib/information";
 import { address } from "@/lib/site";
+import { studioPhotos } from "@/lib/studio";
 
 const sections = informationSections ?? [];
 const byId = (id: string) => sections.find((s) => s?.id === id);
@@ -104,6 +107,23 @@ const facts = factDefs
         )
       }
       <canvas class="intro__canvas" data-intro-canvas aria-hidden="true"></canvas>
+      <div class="intro__hit" data-intro-hit aria-hidden="true"></div>
+    </div>
+
+    {/* Cursor preview over the metal: the tour photos, one shown at a time. */}
+    <div class="intro__cursor" data-intro-cursor aria-hidden="true">
+      {
+        studioPhotos.map((p, i) => (
+          <Image
+            class:list={["intro__cursor-img", { "is-on": i === 0 }]}
+            src={p.src}
+            alt=""
+            widths={[320, 640]}
+            sizes="320px"
+            loading="lazy"
+          />
+        ))
+      }
     </div>
 
     <ul class="intro__facts" role="list">
@@ -174,17 +194,53 @@ const facts = factDefs
     mix-blend-mode: multiply;
   }
 
+  /* Nothing in the chrome area fades: things appear, or transform. The canvas
+     swaps in for the still the moment WebGL is up. */
   .intro__canvas {
-    opacity: 0;
-    transition: opacity 900ms ease;
+    visibility: hidden;
   }
 
   .intro--gl .intro__canvas {
-    opacity: 1;
+    visibility: visible;
   }
 
   .intro--gl .intro__fallback {
     display: none;
+  }
+
+  /* Without WebGL: where the still's metal sits, for the cursor preview. */
+  .intro__hit {
+    position: absolute;
+    inset: 24% 17% 26%;
+    pointer-events: none;
+  }
+
+  .intro__cursor {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+    width: clamp(200px, 20vw, 320px);
+    background: #eeeeee;
+    visibility: hidden;
+    pointer-events: none;
+    translate: var(--cx, 0) var(--cy, 0);
+  }
+
+  .intro__cursor.is-on {
+    visibility: visible;
+  }
+
+  .intro__cursor-img {
+    display: none;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 3 / 2;
+    object-fit: cover;
+  }
+
+  .intro__cursor-img.is-on {
+    display: block;
   }
 
   .intro__facts {
@@ -213,9 +269,6 @@ const facts = factDefs
     line-height: 1.2;
     letter-spacing: 0.01em;
     white-space: nowrap;
-    transition:
-      background-color 140ms ease,
-      color 140ms ease;
   }
 
   .intro__fact a:hover {
@@ -242,14 +295,8 @@ const facts = factDefs
     width: clamp(180px, 18vw, 280px);
     height: auto;
     max-width: none;
-    opacity: 0;
     visibility: hidden;
-    translate: 0 4px;
     pointer-events: none;
-    transition:
-      opacity 160ms ease,
-      translate 160ms ease,
-      visibility 0s linear 160ms;
   }
 
   .intro__fact--left .intro__peek {
@@ -260,25 +307,12 @@ const facts = factDefs
   .intro__fact--up .intro__peek {
     top: auto;
     bottom: calc(100% + 4px);
-    translate: 0 -4px;
   }
 
   @media (hover: hover) {
     .intro__fact a:hover .intro__peek,
     .intro__fact a:focus-visible .intro__peek {
-      opacity: 1;
       visibility: visible;
-      translate: 0 0;
-      transition:
-        opacity 160ms ease,
-        translate 160ms ease,
-        visibility 0s;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .intro__peek {
-      translate: none !important;
     }
   }
 
@@ -310,6 +344,12 @@ const facts = factDefs
     .intro__fact a {
       padding: 5px 8px 4px;
       font-size: 0.6875rem;
+    }
+  }
+
+  @media not ((hover: hover) and (pointer: fine)) {
+    .intro__cursor {
+      display: none;
     }
   }
 </style>
@@ -627,6 +667,140 @@ const facts = factDefs
     return { from: (slot + 2) % 3, to: slot, mix: 1 + settle, flow: 0 };
   };
 
+  // Cursor preview over the metal. It trails the pointer a little and cuts
+  // (no fade) to the next tour photo every STEP px of travel, like the reel.
+  function cursorPreview() {
+    const box = root?.querySelector<HTMLElement>("[data-intro-cursor]");
+    if (!stage || !box) return null;
+    if (!matchMedia("(hover: hover) and (pointer: fine)").matches) return null;
+    const imgs = [...box.querySelectorAll<HTMLImageElement>(".intro__cursor-img")];
+    if (!imgs.length) return null;
+    // Hidden lazy images never load on their own: fetch them as the stage nears.
+    const near = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        for (const img of imgs) img.loading = "eager";
+        near.disconnect();
+      },
+      { rootMargin: "50% 0px" },
+    );
+    near.observe(stage);
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const STEP = 140;
+    const GAP = 18;
+    let idx = 0;
+    let travel = 0;
+    let raf = 0;
+    let shown = false;
+    const at = { x: 0, y: 0 };
+    const to = { x: 0, y: 0 };
+    const prev = { x: 0, y: 0 };
+
+    const step = () => {
+      imgs[idx].classList.remove("is-on");
+      idx = (idx + 1) % imgs.length;
+      imgs[idx].classList.add("is-on");
+    };
+    const place = () => {
+      box.style.setProperty("--cx", `${at.x.toFixed(1)}px`);
+      box.style.setProperty("--cy", `${at.y.toFixed(1)}px`);
+    };
+    const follow = () => {
+      at.x += (to.x - at.x) * 0.25;
+      at.y += (to.y - at.y) * 0.25;
+      place();
+      raf = Math.hypot(to.x - at.x, to.y - at.y) > 0.5 ? requestAnimationFrame(follow) : 0;
+    };
+    // Below-right of the pointer, flipped when it would leave the stage.
+    const target = (e: PointerEvent) => {
+      const r = stage.getBoundingClientRect();
+      const x = e.clientX - r.left;
+      const y = e.clientY - r.top;
+      const w = box.offsetWidth;
+      const h = box.offsetHeight;
+      to.x = x + GAP + w > r.width ? x - GAP - w : x + GAP;
+      to.y = y + GAP + h > r.height ? y - GAP - h : y + GAP;
+    };
+
+    return {
+      move(e: PointerEvent) {
+        target(e);
+        if (!shown) {
+          // Each visit opens on a new photo, right at the pointer.
+          shown = true;
+          step();
+          travel = 0;
+          at.x = to.x;
+          at.y = to.y;
+          place();
+          box.classList.add("is-on");
+        } else {
+          travel += Math.hypot(e.clientX - prev.x, e.clientY - prev.y);
+          if (travel > STEP) {
+            travel = 0;
+            step();
+          }
+          if (reduced) {
+            at.x = to.x;
+            at.y = to.y;
+            place();
+          } else if (!raf) raf = requestAnimationFrame(follow);
+        }
+        prev.x = e.clientX;
+        prev.y = e.clientY;
+      },
+      hide() {
+        shown = false;
+        box.classList.remove("is-on");
+      },
+    };
+  }
+
+  const preview = cursorPreview();
+
+  // Is the pointer on the metal? Without WebGL, the box the still sits in;
+  // start() swaps in a read of the shader's own pixels.
+  const hit = root?.querySelector<HTMLElement>("[data-intro-hit]");
+  let overMetal = (e: PointerEvent) => {
+    const r = hit?.getBoundingClientRect();
+    return !!r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+  };
+
+  // The last real pointer move over the stage. Scrolling clears it, and moves
+  // that don't change position (the browser's own, after a scroll) are
+  // ignored, so the stage sliding under a resting cursor never opens a photo.
+  let pointer: PointerEvent | null = null;
+  const lastXY = { x: NaN, y: NaN };
+  const updatePreview = () => {
+    if (!preview) return;
+    const onLabel = !!(pointer?.target as Element | null)?.closest?.(".intro__fact");
+    if (pointer && !onLabel && overMetal(pointer)) preview.move(pointer);
+    else preview.hide();
+  };
+  if (preview && stage) {
+    stage.addEventListener("pointermove", (e) => {
+      if (e.pointerType !== "mouse") return;
+      if (e.clientX === lastXY.x && e.clientY === lastXY.y) return;
+      lastXY.x = e.clientX;
+      lastXY.y = e.clientY;
+      pointer = e;
+      updatePreview();
+    });
+    stage.addEventListener("pointerleave", () => {
+      pointer = null;
+      updatePreview();
+    });
+    addEventListener(
+      "scroll",
+      () => {
+        if (!pointer) return;
+        pointer = null;
+        updatePreview();
+      },
+      { passive: true },
+    );
+  }
+
   function start() {
     if (!root || !canvas || !stage) return;
     const gl = canvas.getContext("webgl", { premultipliedAlpha: true, antialias: false, alpha: true });
@@ -710,6 +884,27 @@ const facts = factDefs
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     };
 
+    // Alpha of the frame just drawn, under the pointer: the metal is opaque,
+    // its shadow and the paper are not. Only valid straight after draw(),
+    // before the browser presents the frame.
+    const px = new Uint8Array(4);
+    const sample = (e: PointerEvent) => {
+      const r = canvas.getBoundingClientRect();
+      const x = Math.floor(((e.clientX - r.left) / r.width) * canvas.width);
+      const y = Math.floor((1 - (e.clientY - r.top) / r.height) * canvas.height);
+      if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return false;
+      gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      return px[3] > 200;
+    };
+    // While animating, each frame samples once (the metal moves under a still
+    // cursor too); a held frame is redrawn to sample.
+    let metal = false;
+    overMetal = (e) => {
+      if (running) return metal;
+      draw();
+      return sample(e);
+    };
+
     const frame = (now: number) => {
       const elapsed = (now - last) / 1000;
       const dt = Math.min(0.05, elapsed);
@@ -723,6 +918,10 @@ const facts = factDefs
       stage.style.setProperty("--px", tilt.x.toFixed(3));
       stage.style.setProperty("--py", tilt.y.toFixed(3));
       draw();
+      if (pointer) {
+        metal = sample(pointer);
+        updatePreview();
+      }
       if (running) raf = requestAnimationFrame(frame);
     };
 
