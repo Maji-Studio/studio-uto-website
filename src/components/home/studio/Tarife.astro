@@ -20,11 +20,11 @@ const rows = (priceBlock?.pairs ?? []).map(([term, amount]) => {
     detail: [bracket, amount].filter(Boolean).join(" — "),
   };
 });
-// Portraits of people at work: nb-03 nb-05 (AKRIS), yvy-02 yvy-06 (b/w).
+// Portfolio photographs: nb-03 nb-05 (Manor), yvy-02 yvy-06 (b/w).
 const photos = [
-  [nb03, "Model im langen Kleid"],
+  [nb03, "Model in pinkem Sporttop"],
   [yvy02, "Schwarzweiss-Porträt"],
-  [nb05, "Model an der Studiowand"],
+  [nb05, "Porträt mit grüner Kappe"],
   [yvy06, "Schwarzweiss-Aufnahme, zwei Models"],
 ] as const;
 const mail = `mailto:${contact.email}`;

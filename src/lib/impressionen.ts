@@ -5,6 +5,8 @@ export interface ImpressionImage {
   src: ImageMetadata;
   /** Alt text. When omitted, EntityRow derives one from the entity name/client. */
   alt?: string;
+  /** Focal point when the gallery crops the image into a landscape thumbnail. */
+  objectPosition?: string;
 }
 
 export interface Impression {
@@ -20,7 +22,7 @@ export interface Impression {
  * Each collaborator's images live in their own folder under
  * src/assets/impressionen/, shown in filename order.
  *
- * Nicolas's files are generated mock photography pending real shoot images.
+ * Nicolas's gallery uses photographs from his published Manor series.
  * Matthias's YVY gallery uses stills from his published film, UNI by YVY.
  * Source, credits and frame selection: docs/content/impressionen-sources.md.
  */
@@ -47,8 +49,19 @@ function imagesFrom(slug: string): ImpressionImage[] {
 export const impressionen: Impression[] = [
   {
     name: "Nicolas Burri",
-    client: "AKRIS",
-    images: imagesFrom("nicolas-burri"),
+    client: "Manor",
+    images: imagesFrom("nicolas-burri").map((image, index) => ({
+      ...image,
+      objectPosition: index === 0 ? "50% 50%" : "50% 15%",
+      alt: [
+        "Nicolas Burri für Manor — zwei Models in grauem und grünem Anzug mit Smartphone.",
+        "Nicolas Burri für Manor — Model mit buntem Streifenschal und weissem Rollkragenpullover.",
+        "Nicolas Burri für Manor — springendes Model in pinkem Top und schwarzem Sportoutfit.",
+        "Nicolas Burri für Manor — Model in beiger Jacke und blauem Outfit vor hellem Hintergrund.",
+        "Nicolas Burri für Manor — Porträt mit grüner Kappe, grünem Pullover und Schal.",
+        "Nicolas Burri für Manor — Model in blauer Steppweste und blauem Pullover in Bewegung.",
+      ][index],
+    })),
   },
   {
     name: "Matthias Kappeler",

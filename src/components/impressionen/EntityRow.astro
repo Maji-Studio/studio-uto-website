@@ -64,6 +64,7 @@ const full = await Promise.all(
               class="entity__image"
               src={image.src}
               alt={image.alt ?? fallbackAlt}
+              style={image.objectPosition ? { objectPosition: image.objectPosition } : undefined}
               widths={[240, 360, 480]}
               sizes="(max-width: 720px) 30vw, 18vw"
               loading="lazy"
