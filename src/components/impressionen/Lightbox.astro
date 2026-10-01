@@ -5,16 +5,18 @@
  *
  * Layout mirrors an entity row, blown up to the viewport and inverted to black:
  * name + client on the left, count and close on the right, the image as large
- * as fits below at its own ratio, and a prev/next bar along the bottom. The two arrows
- * meet in the middle, each with its half of the width as hover area; hovering
- * one sends it round a cylinder into the page (see src/lib/cylinder-arrow.ts).
+ * as fits below at its own ratio. A full-width band at the image's height is
+ * split into prev/next halves; over it the pointer turns into a label that
+ * reads "Previous (03/08)" on the left and "Next (05/08)" on the right, and
+ * morphs between the two as it crosses the middle (see src/lib/step-label.ts).
  *
- * Opening, closing and stepping are same-document View Transitions: the clicked
+ * Opening and closing are same-document View Transitions: the clicked
  * thumbnail morphs into the full image while a black panel and then the viewer's
  * contents rise from the bottom edge (the chip hover, at page scale). Closing keeps the
- * same upward direction. Stepping waits for the next large file, then blends it
- * in while the frame eases from the old format to the new one. Browsers
- * without View Transitions just open/close/step instantly.
+ * same upward direction. Browsers without View Transitions just open/close
+ * instantly. Stepping waits for the next large file, then shows it at once
+ * while the frame eases from the old format to the new one: a transition on
+ * --ar rather than a View Transition, so the pointer label stays live.
  */
 ---
 
@@ -32,43 +34,44 @@
     </div>
   </header>
 
-  <figure class="lightbox__stage">
+  <figure class="lightbox__stage" data-lightbox-stage>
     <img class="lightbox__image" data-lightbox-image alt="" decoding="async" />
+
+    <nav class="lightbox__nav" aria-label="Bilder" data-lightbox-nav>
+      <button
+        class="lightbox__step"
+        type="button"
+        data-lightbox-step="-1"
+        aria-label="Vorheriges Bild"></button>
+      <button
+        class="lightbox__step"
+        type="button"
+        data-lightbox-step="1"
+        aria-label="Nächstes Bild"></button>
+    </nav>
   </figure>
 
-  <nav class="lightbox__nav" aria-label="Bilder">
-    <button
-      class="lightbox__step lightbox__step--prev"
-      type="button"
-      data-lightbox-step="-1"
-      aria-label="Vorheriges Bild"
-    >
-      <svg class="arrow" aria-hidden="true">
-        <linearGradient gradientUnits="userSpaceOnUse"></linearGradient>
-        <path></path>
-      </svg>
-    </button>
-    <button
-      class="lightbox__step lightbox__step--next"
-      type="button"
-      data-lightbox-step="1"
-      aria-label="Nächstes Bild"
-    >
-      <svg class="arrow" aria-hidden="true">
-        <linearGradient gradientUnits="userSpaceOnUse"></linearGradient>
-        <path></path>
-      </svg>
-    </button>
-  </nav>
+  <div class="step-label" data-lightbox-label aria-hidden="true">
+    <span class="step-label__chip" data-step-label-chip>
+      <span class="step-label__slot" data-step-label-slot><span></span></span>
+      <span class="step-label__text"> (</span>
+      <span class="step-label__slot" data-step-label-slot><span></span></span>
+      <span class="step-label__text" data-step-label-total></span>
+    </span>
+  </div>
 </dialog>
 
 <script>
-  import { mountCylinderArrow } from "@/lib/cylinder-arrow";
+  import { mountStepLabel } from "@/lib/step-label";
 
   const dialog = document.querySelector<HTMLDialogElement>("[data-lightbox]");
   const q = <T extends HTMLElement>(sel: string) =>
     dialog?.querySelector<T>(sel) ?? null;
   const image = q<HTMLImageElement>("[data-lightbox-image]");
+  const stage = q("[data-lightbox-stage]");
+  const nav = q("[data-lightbox-nav]");
+  const labelEl = q("[data-lightbox-label]");
+  const totalEl = q("[data-step-label-total]");
   const nameEl = q("[data-lightbox-name]");
   const clientEl = q("[data-lightbox-client]");
   const countEl = q("[data-lightbox-count]");
@@ -83,7 +86,17 @@
     alt: string;
   }
 
-  if (dialog && image && nameEl && clientEl && countEl) {
+  if (
+    dialog &&
+    image &&
+    stage &&
+    nav &&
+    labelEl &&
+    totalEl &&
+    nameEl &&
+    clientEl &&
+    countEl
+  ) {
     let gallery: HTMLElement | null = null;
     let slides: Slide[] = [];
     let index = 0;
@@ -127,10 +140,12 @@
 
     // Paint slide `index` into the viewer. The thumbnail's already-decoded file
     // sits behind the full image as a background, so the viewer is never blank
-    // while the large file is still on its way.
+    // while the large file is still on its way. A new --ar eases the frame into
+    // the new format while the viewer is up; on open the dialog is still
+    // closed, so there is nothing to ease from.
     const fill = () => {
       const s = slides[index];
-      image.style.setProperty("--ar", String(s.width / s.height));
+      stage.style.setProperty("--ar", String(s.width / s.height));
       image.style.backgroundImage = `url("${s.thumb.currentSrc || s.thumb.src}")`;
       image.width = s.width;
       image.height = s.height;
@@ -153,7 +168,7 @@
     // rejection that browsers use to report a skipped snapshot animation.
     let activeTransition: ViewTransition | null = null;
     const transition = async (
-      kind: "open" | "close" | "step",
+      kind: "open" | "close",
       update: () => void | Promise<void>,
     ) => {
       if (!document.startViewTransition || reducedMotion.matches) {
@@ -212,6 +227,8 @@
       gallery = from;
       slides = readSlides(from);
       index = target = at;
+      nav.hidden = slides.length < 2;
+      totalEl.textContent = `/${pad(slides.length)})`;
       nameEl.textContent = from.dataset.name ?? "";
       clientEl.textContent = from.dataset.client
         ? `for ${from.dataset.client}`
@@ -231,6 +248,9 @@
         phase = "open";
         warmNeighbours();
         void drainSteps();
+        // The pointer is usually still where the thumbnail was clicked, which
+        // is now over the band: raise the label there without waiting for a move.
+        if (pointer) aim(pointer.x, pointer.y);
       });
     };
 
@@ -239,7 +259,9 @@
       phase = "closing";
       ++session; // invalidate outstanding decodes and queued steps
       target = index;
-      for (const arrow of arrows.values()) arrow.reset();
+      // Gone before the close snapshot is taken.
+      side = 0;
+      label.hide(true);
       const from = gallery;
       const interrupted = activeTransition;
       interrupted?.skipTransition();
@@ -265,8 +287,7 @@
       })();
     };
 
-    // Finish the current morph instead of repeatedly snapping to its endpoint.
-    // Every press counts; after a decode/morph, go to the latest requested image.
+    // Every press counts; once a file is in, go to the latest requested image.
     const drainSteps = async () => {
       const currentSession = session;
       if (phase !== "open" || steppingSession === currentSession) return;
@@ -281,14 +302,11 @@
           await preload(slides[to].btn);
           if (session !== currentSession || phase !== "open") return;
           if (to !== target) continue;
-          await transition("step", async () => {
-            delete slides[index].thumb.dataset.away;
-            index = to;
-            slides[index].thumb.dataset.away = "";
-            fill();
-            await settle();
-          });
-          if (session === currentSession) warmNeighbours();
+          delete slides[index].thumb.dataset.away;
+          index = to;
+          slides[index].thumb.dataset.away = "";
+          fill();
+          warmNeighbours();
         }
       } finally {
         if (steppingSession === currentSession) steppingSession = null;
@@ -299,6 +317,7 @@
       if ((phase !== "open" && phase !== "opening") || slides.length < 2)
         return;
       target = (target + dir + slides.length) % slides.length;
+      if (side) label.set(labelText(side), dir);
       void preload(slides[target].btn);
       void drainSteps();
     };
@@ -322,7 +341,7 @@
 
     q("[data-lightbox-close]")?.addEventListener("click", close);
 
-    const under = (el: Element, e: MouseEvent) => {
+    const under = (el: Element, e: Pick<MouseEvent, "clientX" | "clientY">) => {
       const rect = el.getBoundingClientRect();
       return (
         e.clientX >= rect.left &&
@@ -381,14 +400,75 @@
     });
     document.addEventListener("click", routeSnapshotInput, { capture: true });
 
-    const arrows = new Map<number, ReturnType<typeof mountCylinderArrow>>();
-    dialog
-      .querySelectorAll<HTMLElement>("[data-lightbox-step]")
-      .forEach((btn) => {
-        const dir = Number(btn.dataset.lightboxStep);
-        arrows.set(dir, mountCylinderArrow(btn));
-        btn.addEventListener("click", () => step(dir));
+    // Pointer label. `side` is the half it currently reads for (-1 prev,
+    // 1 next), 0 while it is down. It reads for `target`, so presses still
+    // waiting for their file already count.
+    const label = mountStepLabel(labelEl);
+    const steps = Array.from(
+      dialog.querySelectorAll<HTMLButtonElement>("[data-lightbox-step]"),
+    );
+    let side = 0;
+    // Parked on a keyboard-focused half rather than following the pointer.
+    let parked = false;
+    let pointer: { x: number; y: number } | null = null;
+
+    const labelText = (dir: number) => [
+      dir > 0 ? "Next" : "Previous",
+      pad(((target + dir + slides.length) % slides.length) + 1),
+    ];
+
+    const point = (btn: HTMLElement, x: number, y: number) => {
+      const dir = Number(btn.dataset.lightboxStep);
+      if (dir !== side) label.set(labelText(dir), dir);
+      side = dir;
+      label.show(x, y);
+    };
+
+    const drop = () => {
+      if (!side) return;
+      side = 0;
+      parked = false;
+      label.hide();
+    };
+
+    const aim = (x: number, y: number) => {
+      const btn =
+        phase === "open"
+          ? steps.find((b) => under(b, { clientX: x, clientY: y }))
+          : undefined;
+      if (btn) {
+        parked = false;
+        point(btn, x, y);
+      } else drop();
+    };
+
+    document.addEventListener("pointermove", (e) => {
+      if (e.pointerType !== "mouse") return;
+      pointer = { x: e.clientX, y: e.clientY };
+      if (dialog.open) aim(e.clientX, e.clientY);
+    });
+    // Off the window.
+    document.addEventListener("pointerout", (e) => {
+      if (e.pointerType !== "mouse" || e.relatedTarget) return;
+      pointer = null;
+      drop();
+    });
+
+    for (const btn of steps) {
+      btn.addEventListener("click", () =>
+        step(Number(btn.dataset.lightboxStep)),
+      );
+      // Keyboard focus parks the label in the middle of its half.
+      btn.addEventListener("focus", () => {
+        if (phase !== "open" || !btn.matches(":focus-visible")) return;
+        const r = btn.getBoundingClientRect();
+        parked = true;
+        point(btn, r.left + r.width / 2, r.top + r.height / 2);
       });
+      btn.addEventListener("blur", () => {
+        if (parked) drop();
+      });
+    }
 
     // Esc: run our close transition instead of the dialog's instant one.
     dialog.addEventListener("cancel", (e) => {
@@ -447,8 +527,6 @@
 
 <style>
   .lightbox {
-    /* Height of the prev/next bar. */
-    --arrow-h: clamp(44px, 11vh, 120px);
     --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
     position: fixed;
@@ -468,7 +546,7 @@
 
   .lightbox[open] {
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr);
     row-gap: var(--page-pad);
   }
 
@@ -533,62 +611,126 @@
     text-underline-offset: 0.15em;
   }
 
-  /* The image is as large as fits between bar and arrows, always at its own
-     ratio — never cropped. It is sized from --ar (set per slide) rather than
-     from the loaded file, so the box is right before the file arrives and the
-     view transition can snapshot it immediately. */
+  /* The image is as large as fits below the bar, always at its own ratio —
+     never cropped. It is sized from --ar (set per slide on the stage) rather
+     than from the loaded file, so the box is right before the file arrives and
+     the view transition can snapshot it immediately. While a new --ar eases
+     in, the image covers the changing frame instead of stretching to it. */
   .lightbox__stage {
     display: grid;
     place-items: center;
     min-height: 0;
     margin: 0;
     container-type: size;
+    transition: --ar 460ms var(--ease);
   }
 
   .lightbox__image {
-    width: min(100cqw, 100cqh * var(--ar, 1.5));
+    grid-area: 1 / 1;
+    width: min(100cqw, 100cqh * var(--ar));
     height: auto;
-    aspect-ratio: var(--ar, 1.5);
-    background-size: 100% 100%;
+    aspect-ratio: var(--ar);
+    object-fit: cover;
+    background-size: cover;
+    background-position: center;
     view-transition-name: lb-image;
   }
 
-  /* Prev/next: two halves of the width, the arrows meeting in the middle. */
+  /* Prev/next: the band across the full width at the image's height, split
+     into halves over it. The pointer label stands in for a cursor here. */
   .lightbox__nav {
+    grid-area: 1 / 1;
+    justify-self: stretch;
+    position: relative;
+    z-index: 1;
     display: flex;
-    height: var(--arrow-h);
+    height: min(100cqh, 100cqw / var(--ar));
+    margin-inline: calc(-1 * var(--page-pad));
+  }
+
+  .lightbox__nav[hidden] {
+    display: none;
   }
 
   .lightbox__step {
-    display: flex;
     flex: 1 1 0;
     min-width: 0;
     border: 0;
     padding: 0;
     background: none;
-    color: inherit;
     cursor: pointer;
   }
 
+  /* The label is the focus mark (it parks in the focused half). */
   .lightbox__step:focus-visible {
-    outline-offset: -2px;
+    outline: none;
   }
 
-  /* Geometry is drawn by the script, in px from the button's inner edge (the
-     prev arrow is mirrored); the bent part may run past the arrow's square. */
-  .arrow {
+  @media (hover: hover) and (pointer: fine) {
+    .lightbox__step {
+      cursor: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lightbox__stage {
+      transition: none;
+    }
+  }
+
+  /* A chip inverted for the black viewer. The script moves the root to the
+     pointer; the chip centres on it. */
+  .step-label {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .step-label:not([data-shown]) {
+    visibility: hidden;
+  }
+
+  .step-label__chip {
+    display: flex;
+    align-items: flex-start;
+    translate: -50% -50%;
+    padding: 3px 6px;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-size: 0.8125rem;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+    font-variant-numeric: tabular-nums;
+    white-space: pre;
+  }
+
+  .step-label__slot {
+    position: relative;
+    overflow: clip;
+  }
+
+  .step-label__slot > :global(span) {
     display: block;
-    width: 100%;
-    height: 100%;
-    overflow: visible;
   }
 
-  .lightbox__step--prev .arrow {
-    scale: -1 1;
+  /* The outgoing value no longer sets the slot's width. */
+  .step-label__slot > :global([data-leaving]) {
+    position: absolute;
+    top: 0;
+    left: 0;
   }
 </style>
 
 <style is:global>
+  /* Per-slide image ratio. Registered so it can transition. */
+  @property --ar {
+    syntax: "<number>";
+    inherits: true;
+    initial-value: 1.5;
+  }
+
   /* Page stays put behind the viewer. */
   html:has(.lightbox[open]) {
     overflow: hidden;
@@ -707,26 +849,6 @@
 
   html[data-lb-vt="close"]::view-transition-image-pair(lightbox) {
     animation: lb-lift 420ms cubic-bezier(0.22, 1, 0.36, 1) 160ms both;
-  }
-
-  /* Step: no opacity fade. The new image is there at once, covering the
-     mask without distortion while the frame eases into its new aspect ratio;
-     the old image is dropped outright rather than blended. The header and
-     arrows remain steady and live throughout. */
-  html[data-lb-vt="step"]::view-transition-group(lightbox),
-  html[data-lb-vt="step"]::view-transition-group(lb-title),
-  html[data-lb-vt="step"]::view-transition-old(*),
-  html[data-lb-vt="step"]::view-transition-new(*) {
-    animation: none;
-  }
-
-  html[data-lb-vt="step"]::view-transition-group(lb-image) {
-    animation-duration: 460ms;
-    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  html[data-lb-vt="step"]::view-transition-old(lb-image) {
-    opacity: 0;
   }
 
   @keyframes lb-fade-out {
