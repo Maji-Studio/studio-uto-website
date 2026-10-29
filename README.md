@@ -1,6 +1,6 @@
 # Atelier Uto
 
-Static editorial studio website built with Astro, React, MDX, and TypeScript. Styling is plain hand-written CSS (design tokens in `src/styles/global.css`, scoped `<style>` blocks per component) — no CSS framework.
+Studio Uto marketing website, built with Next.js (App Router), React and TypeScript, with a Payload CMS admin under `/admin`. Styling is plain hand-written CSS (design tokens in `src/styles/global.css`, one stylesheet per component) — no CSS framework.
 
 ## Commands
 
@@ -13,18 +13,12 @@ pnpm test
 
 ## Structure
 
-- `src/pages` defines the manual route tree.
-- `src/content/pages` stores editable page MDX.
-- `src/content/examples` stores example detail entries with dynamic slugs.
-- `src/components/sections/SectionRenderer.tsx` maps section data to React components.
-- `CONTENT_MODEL.md` explains the editor-facing content format.
-
-## Content Strategy
-
-Use frontmatter `sections` for layout and component choices. Use the MDX body for longer editorial prose.
-
-This keeps non-technical editing readable while still validating content at build time.
+- `src/app/(frontend)` holds the five public routes (`/`, `/impressionen/`, `/information/`, `/kontakt/`, `/sketch/`) and the root layout with the cross-document view-transition head scripts.
+- `src/components` holds the page components. Behaviour that used to live in Astro `<script>` tags sits in `*.script.ts` modules, started from small `*.client.tsx` components.
+- `src/lib/content` is the content contract: pages read content only through the async getters in `index.ts`, which currently return the bundled data in `static.ts`.
+- Navigation uses plain `<a href>` links on purpose: the site relies on cross-document View Transitions between full page loads.
+- `CONTENT_MODEL.md` describes the content shapes.
 
 ## Images
 
-Put images beside the MDX file that uses them. The content schema validates local image fields. For image-heavy sections that need art-directed responsive output, add an Astro wrapper section later so it can use Astro's `<Image />` or `<Picture />` directly.
+Content images are rendered with `next/image` from `ContentImage` values (URL, intrinsic size, alt text), so they work for bundled files and for remote CMS URLs alike.

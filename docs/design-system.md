@@ -3,7 +3,7 @@
 The reference for the Studio Uto design system. It covers tokens, type, components, slide templates and brand rules. The system lives in the Figma Slides file and is derived from this website. **Keep this file current.** Any change to the Figma library, or to the website tokens it mirrors, updates this file in the same session. Add a line to the [Changelog](#changelog) too.
 
 - **Figma file:** https://www.figma.com/slides/799CnBtLPVDjUiuLNBH7ek (fileKey `799CnBtLPVDjUiuLNBH7ek`)
-- **Source of truth for style:** `src/styles/global.css`, `src/components/home/SiteHeader.astro`, `src/components/home/Logo.astro`, `src/components/home/studio/Facts.astro`, `src/components/impressionen/EntityRow.astro`, `src/pages/kontakt.astro`
+- **Source of truth for style:** `src/styles/global.css`, `src/components/home/SiteHeader.tsx`, `src/components/home/Logo.tsx`, `src/components/home/studio/Facts.tsx`, `src/components/impressionen/EntityRow.tsx`, `src/app/(frontend)/kontakt/page.tsx`
 - **Source of truth for facts:** `src/lib/studio.ts`, `src/lib/information.ts`, `src/lib/site.ts`. Never invent numbers.
 - **Decisions:** [ADR 0002](adr/0002-figma-design-system-website-style.md)
 - **Shareable page:** https://claude.ai/artifact/5vtMAX3ixK4L7cjR959BrW. It is a browsable mirror of this file with tokens, type specimens, component previews, the glyphs and the wordmark. When you change tokens, components or brand rules here, update the matching files in that artifact too: `project/tokens.json`, `project/README.md`, `project/components/<Name>/`. This file wins if the two disagree.
@@ -31,7 +31,7 @@ Slide rows, in order:
 
 - **Slide:** 1920 × 1080.
 - **Page edge:** content starts at x 11 (`page-pad`); full width is 1898.
-- **Label column:** 492 wide (`label-col`), so content starts at x 503. This is the website's 1fr : 3fr split from `Facts.astro`.
+- **Label column:** 492 wide (`label-col`), so content starts at x 503. This is the website's 1fr : 3fr split from `Facts.tsx`.
 - **Header:** y 11, or y 122 under the cropped wordmark.
 - **Cropped wordmark:** 1898 × 209 at y −112. At y 11 it sits uncropped.
 - **Bottom-anchored text:** list and statement blocks end at y 1069.
@@ -146,7 +146,7 @@ Retired, kept only for the old decks: `Alt / Meta Bar`, `Alt / Rail`, `Alt / Row
 
 ## Brand rules
 
-- **Wordmark:** runs edge to edge, 11 px from the page edge, with the chip row 10 px below (`SiteHeader` `margin-top`). It is at least 32 px high on screen, the smallest size on the website (`Logo.astro`: font-size clamp minimum 40 px × line-height 0.8). Don't stretch, rotate or recolour it by hand. Only the UTO Variable width axis changes its shape.
+- **Wordmark:** runs edge to edge, 11 px from the page edge, with the chip row 10 px below (`SiteHeader` `margin-top`). It is at least 32 px high on screen, the smallest size on the website (`Logo.tsx`: font-size clamp minimum 40 px × line-height 0.8). Don't stretch, rotate or recolour it by hand. Only the UTO Variable width axis changes its shape.
 - **Colour:** monochrome. Uto Kobalt (`field`) appears only on deck covers and breaks, never on the website.
 - **Type:** Helvetica Neue Regular for almost everything. Bold appears only in uppercase labels.
 - **Glyphs:** the set is fixed at 18 rental glyphs (Miete, Raum, Zugang). Equipment is named in text, not drawn.
@@ -180,5 +180,5 @@ Retired, kept only for the old decks: `Alt / Meta Bar`, `Alt / Rail`, `Alt / Row
   - Library row `00 Bibliothek` with 12 components; templates rebuilt from instances.
   - Tokens added: `chip-active`, `caption`, and the website space tokens. Grid space tokens deleted.
   - Grid components and styles retired to `Alt`.
-  - Wordmark rules now come from `Logo.astro` and `SiteHeader.astro`.
+  - Wordmark rules now come from `Logo.tsx` and `SiteHeader.tsx`.
   - Published the shareable design system page (artifact 5vtMAX3ixK4L7cjR959BrW).
