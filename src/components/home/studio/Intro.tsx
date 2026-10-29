@@ -1,14 +1,6 @@
-import Image, { type StaticImageData } from "next/image";
-
-import boden from "@/assets/studio/boden.jpg";
-import fallback from "@/assets/studio/chrome-o.png";
-import grundriss from "@/assets/studio/grundriss.png";
-import kaffeemaschine from "@/assets/studio/kaffeemaschine.jpg";
-import mittagslicht from "@/assets/studio/mittagslicht.jpg";
-import panorama from "@/assets/studio/panorama.jpg";
-import shootingFlaeche from "@/assets/studio/shooting-flaeche.jpg";
-import sichtVonDerKueche from "@/assets/studio/sicht-von-der-kueche.jpg";
+import StaticImg from "@/components/site/StaticImg";
 import type { SiteSettings, StudioSection } from "@/lib/content/types";
+import { staticImages, type StaticImage } from "@/lib/static-images";
 
 import IntroScript from "./Intro.client";
 import "./Intro.css";
@@ -26,7 +18,18 @@ import "./Intro.css";
 // pointer travels.
 
 // The hover peeks and the cursor preview are decorative, so their photos are
-// bundled here rather than read from the content source.
+// bundled here (optimized once by scripts/optimize-static-images.ts) rather
+// than read from the content source.
+const {
+  boden,
+  chromeO: fallback,
+  grundriss,
+  kaffeemaschine,
+  mittagslicht,
+  panorama,
+  shootingFlaeche,
+  sichtVonDerKueche,
+} = staticImages;
 const cursorPhotos = [
   sichtVonDerKueche,
   shootingFlaeche,
@@ -51,7 +54,7 @@ const dims = (s = "") =>
 type FactDef = [
   label: string | undefined,
   id: string,
-  photo: StaticImageData,
+  photo: StaticImage,
   x: number,
   y: number,
   mx: number,
@@ -181,9 +184,9 @@ export default function Intro({ sections, address }: Props) {
     <section className="intro" aria-label="Studio Uto in Zahlen">
       <div className="intro__stage" data-intro-stage>
         <div className="intro__object">
-          <Image
+          <StaticImg
             className="intro__fallback"
-            src={fallback}
+            image={fallback}
             alt=""
             sizes="(max-width: 720px) 80vw, 50vw"
             loading="lazy"
@@ -199,12 +202,12 @@ export default function Intro({ sections, address }: Props) {
         {/* Cursor preview over the metal: the tour photos, one shown at a time. */}
         <div className="intro__cursor" data-intro-cursor aria-hidden="true">
           {cursorPhotos.map((photo, i) => (
-            <Image
+            <StaticImg
               key={i}
               className={
                 i === 0 ? "intro__cursor-img is-on" : "intro__cursor-img"
               }
-              src={photo}
+              image={photo}
               alt=""
               sizes="320px"
               loading="lazy"
@@ -236,9 +239,9 @@ export default function Intro({ sections, address }: Props) {
             >
               <a href={f.href}>
                 {f.label}
-                <Image
+                <StaticImg
                   className="intro__peek"
-                  src={f.photo}
+                  image={f.photo}
                   alt=""
                   sizes="280px"
                   loading="lazy"

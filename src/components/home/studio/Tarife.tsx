@@ -1,10 +1,6 @@
-import Image from "next/image";
-
-import nb03 from "@/assets/impressionen/nicolas-burri/nb-03.jpg";
-import nb05 from "@/assets/impressionen/nicolas-burri/nb-05.jpg";
-import yvy02 from "@/assets/impressionen/matthias-kappeler-yvy/yvy-02.jpg";
-import yvy06 from "@/assets/impressionen/matthias-kappeler-yvy/yvy-06.jpg";
+import StaticImg from "@/components/site/StaticImg";
 import type { SiteSettings, StudioSection } from "@/lib/content/types";
+import { staticImages } from "@/lib/static-images";
 
 import "./Tarife.css";
 
@@ -17,6 +13,7 @@ interface Props {
 }
 
 // Portfolio photographs: nb-03 nb-05 (Manor), yvy-02 yvy-06 (b/w). Decorative.
+const { nb03, nb05, yvy02, yvy06 } = staticImages;
 const photos = [nb03, yvy02, nb05, yvy06];
 
 export default function Tarife({ sections, settings }: Props) {
@@ -41,7 +38,7 @@ export default function Tarife({ sections, settings }: Props) {
       <ul className="tarife-list">
         {rows.map((r, i) => (
           <li key={r.name}>
-            <Image src={photos[i % photos.length]} alt="" sizes="120px" />
+            <StaticImg image={photos[i % photos.length]} sizes="120px" />
             <div>
               <span className="tarife-big">
                 {r.name} {r.amount}
