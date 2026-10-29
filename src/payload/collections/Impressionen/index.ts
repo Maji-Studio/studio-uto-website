@@ -23,17 +23,28 @@ export const Impressionen: CollectionConfig = {
     afterDelete: [revalidateAfterDelete],
   },
   fields: [
-    { name: "name", type: "text", required: true },
-    { name: "client", type: "text" },
+    { name: "name", label: "Name", type: "text", required: true },
+    { name: "client", label: "Für (Kunde)", type: "text" },
     {
       name: "images",
+      label: "Bilder",
       type: "array",
       fields: [
-        { name: "image", type: "upload", relationTo: "media", required: true },
+        {
+          name: "image",
+          label: "Bild",
+          type: "upload",
+          relationTo: "media",
+          required: true,
+        },
         {
           name: "objectPosition",
+          label: "Bildausschnitt",
           type: "text",
-          admin: { description: "CSS object-position, e.g. 50% 15%" },
+          admin: {
+            description:
+              "Fokuspunkt beim Zuschneiden als CSS object-position, z. B. 50% 15%.",
+          },
         },
       ],
     },

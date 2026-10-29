@@ -185,6 +185,9 @@ export interface User {
  */
 export interface Media {
   id: string;
+  /**
+   * Beschreibt das Bild für Screenreader und Suchmaschinen.
+   */
   alt: string;
   caption?: string | null;
   prefix?: string | null;
@@ -294,7 +297,7 @@ export interface Impressionen {
     | {
         image: string | Media;
         /**
-         * CSS object-position, e.g. 50% 15%
+         * Fokuspunkt beim Zuschneiden als CSS object-position, z. B. 50% 15%.
          */
         objectPosition?: string | null;
         id?: string | null;

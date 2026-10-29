@@ -1,9 +1,14 @@
 import type { Field } from "payload";
 
 export const navFields: Field[] = [
-  { name: "label", type: "text", required: true },
-  { name: "href", type: "text", required: true },
-  { name: "external", type: "checkbox", defaultValue: false },
+  { name: "label", label: "Text", type: "text", required: true },
+  { name: "href", label: "Link", type: "text", required: true },
+  {
+    name: "external",
+    label: "Öffnet in neuem Tab",
+    type: "checkbox",
+    defaultValue: false,
+  },
 ];
 
 export const urlField = (name: string): Field => ({

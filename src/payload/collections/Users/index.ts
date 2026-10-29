@@ -20,9 +20,10 @@ export const Users: CollectionConfig = {
     hidden: ({ user }) => !checkRole(["admin"], user),
   },
   fields: [
-    { name: "name", type: "text" },
+    { name: "name", label: "Name", type: "text" },
     {
       name: "roles",
+      label: "Rollen",
       type: "select",
       hasMany: true,
       defaultValue: ["editor"],

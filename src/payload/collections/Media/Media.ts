@@ -34,8 +34,16 @@ export const Media: CollectionConfig = {
     afterDelete: [revalidateAfterDelete],
   },
   fields: [
-    { name: "alt", type: "text", required: true },
-    { name: "caption", type: "text" },
+    {
+      name: "alt",
+      label: "Alternativtext",
+      type: "text",
+      required: true,
+      admin: {
+        description: "Beschreibt das Bild für Screenreader und Suchmaschinen.",
+      },
+    },
+    { name: "caption", label: "Bildlegende", type: "text" },
   ],
   upload: {
     staticDir: fileURLToPath(new URL("../../../../media", import.meta.url)),
