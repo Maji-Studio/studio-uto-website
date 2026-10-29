@@ -4,7 +4,7 @@ The reference for the Studio Uto design system. It covers tokens, type, componen
 
 - **Figma file:** https://www.figma.com/slides/799CnBtLPVDjUiuLNBH7ek (fileKey `799CnBtLPVDjUiuLNBH7ek`)
 - **Source of truth for style:** `src/styles/global.css`, `src/components/home/SiteHeader.tsx`, `src/components/home/Logo.tsx`, `src/components/home/studio/Facts.tsx`, `src/components/impressionen/EntityRow.tsx`, `src/app/(frontend)/kontakt/page.tsx`
-- **Source of truth for facts:** `src/lib/studio.ts`, `src/lib/information.ts`, `src/lib/site.ts`. Never invent numbers.
+- **Source of truth for facts:** the Payload CMS (`/admin`: Website, Information, Impressionen). A fresh database starts from `scripts/seed-data.ts`. Never invent numbers.
 - **Decisions:** [ADR 0002](adr/0002-figma-design-system-website-style.md)
 - **Shareable page:** https://claude.ai/artifact/5vtMAX3ixK4L7cjR959BrW. It is a browsable mirror of this file with tokens, type specimens, component previews, the glyphs and the wordmark. When you change tokens, components or brand rules here, update the matching files in that artifact too: `project/tokens.json`, `project/README.md`, `project/components/<Name>/`. This file wins if the two disagree.
 
@@ -175,6 +175,7 @@ Retired, kept only for the old decks: `Alt / Meta Bar`, `Alt / Rail`, `Alt / Row
 
 ## Changelog
 
+- **2026-10-29:** Facts moved from `src/lib/*.ts` into Payload CMS ([ADR 0003](adr/0003-payload-cms-on-nextjs.md)). The website tokens and components are unchanged.
 - **2026-10-01:**
   - Three decks were built in the grid style, then templates V01–V21 in the website style.
   - Library row `00 Bibliothek` with 12 components; templates rebuilt from instances.

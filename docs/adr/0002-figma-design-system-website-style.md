@@ -8,7 +8,7 @@ The Studio Uto decks in Figma Slides (`799CnBtLPVDjUiuLNBH7ek`) were first built
 
 ## Decision
 
-- **The website is the source of truth.** The Figma system copies its tokens and parts from `global.css` and the components named in `docs/design-system.md`. Facts come only from `src/lib/`.
+- **The website is the source of truth.** The Figma system copies its tokens and parts from `global.css` and the components named in `docs/design-system.md`. Facts come only from `src/lib/` (since [ADR 0003](0003-payload-cms-on-nextjs.md): from the CMS).
 - **One library in the file.** All components live in the hidden row `00 Bibliothek`. Templates and decks use instances only. A Slides file can't share a library with other files, so the system stays in this file.
 - **Grid parts are retired, not deleted, while decks 01–03 still use them.** They are renamed `Alt /`. Grid spacing tokens nobody used were deleted.
 - **Brand rules come from code, not invention.** The wordmark minimum (32 px high) and edge rule come from `Logo.astro` and `SiteHeader.astro`. The earlier made-up rules (120 px, 25 mm, one wordmark-height of clear space) are dropped.
