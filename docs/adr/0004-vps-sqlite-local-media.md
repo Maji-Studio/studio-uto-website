@@ -22,5 +22,5 @@ ADR 0003 copied the CITY STAY plan: Vercel hosting, managed MongoDB, uploads in 
 - Schema changes ship as committed migrations. After changing a collection or global, run `pnpm migrate:create <name>` and commit the generated files and index. Local development keeps Payload's default schema push behaviour.
 - Only one instance is supported. Database, media and Next's page cache need persistent local disk; scaling to multiple instances would need a new decision.
 - There is no Docker locally either. Local development needs Node and pnpm, with writable database and media directories.
-- Server scripts, Caddy and systemd configuration, the deploy workflow and new backups come in the next infrastructure step. `scripts/setup-infra.sh` still describes the old plan and is outdated until it is rewritten.
+- Server scripts, Caddy and systemd configuration, deploys and backups: see [ADR 0005](0005-server-operations.md).
 - Payload 4 beta, Next.js, upload-time image optimization and the content model from ADR 0003 still stand.

@@ -1,6 +1,6 @@
 # Atelier Uto
 
-Studio Uto marketing website: Next.js 16 (App Router), React and TypeScript, with content in Payload CMS 4 (beta) at `/admin`. Styling is plain hand-written CSS (design tokens in `src/styles/global.css`, one stylesheet per component), no CSS framework. Why this stack: [ADR 0003](docs/adr/0003-payload-cms-on-nextjs.md). Hosting and storage: [ADR 0004](docs/adr/0004-vps-sqlite-local-media.md).
+Studio Uto marketing website: Next.js 16 (App Router), React and TypeScript, with content in Payload CMS 4 (beta) at `/admin`. Styling is plain hand-written CSS (design tokens in `src/styles/global.css`, one stylesheet per component), no CSS framework. Why this stack: [ADR 0003](docs/adr/0003-payload-cms-on-nextjs.md). Hosting and storage: [ADR 0004](docs/adr/0004-vps-sqlite-local-media.md). Server operations: [ADR 0005](docs/adr/0005-server-operations.md).
 
 Requires Node 24.22.1 or newer and pnpm.
 
@@ -20,6 +20,7 @@ pnpm generate:importmap  # after adding admin components
 
 pnpm env:local           # writes .env.local from 1Password
 pnpm env:check           # reports drift between the templates and 1Password
+pnpm db:pull [uto@host]  # replaces local data/ and media/ with an anonymised production copy
 ```
 
 First run: `pnpm env:local` (or copy `.env.example` to `.env` and set `PAYLOAD_SECRET`), `pnpm dev`, create the first user at `/admin` (it becomes admin), then `pnpm seed`. Local development uses Payload's default schema push behaviour. After changing a collection or global: `pnpm generate:types`, then `pnpm migrate:create <name>`, and commit the migration with its generated index. Production runs `pnpm migrate` before `pnpm build`.
@@ -45,10 +46,29 @@ Raster images are converted to WebP once at upload: the main file is at most 256
 
 Secrets live in 1Password (vault `Environment Variables`), never in the repo: the two items are `studio-uto-website env local` and `studio-uto-website env production`, with fields named like the env vars. `.env.local.tpl` holds the local references; `.env.tpl` holds the production references. Both need `DATABASE_URI`, `PAYLOAD_SECRET` and `NEXT_PUBLIC_SERVER_URL`. Production also needs `MEDIA_DIR`; it is optional locally. Agents never run `op` themselves.
 
-Production will run as one Node 24 process on a single VPS, managed by systemd behind Caddy. The provider is still to be chosen. There is no staging environment and no Docker locally or on the server. GitHub will deploy on push to `main`, then build on the server because `next build` pre-renders from the live database. Schema changes ship as committed migrations. Only one app instance is supported.
+Production runs as one Node 24 process on a single VPS, managed by systemd behind Caddy. The provider is still to be chosen. There is no staging environment and no Docker locally or on the server. Schema changes ship as committed migrations. Only one app instance is supported.
 
-`./scripts/setup-infra.sh` is outdated and must not be used for this setup. Server scripts, the deploy workflow and production secret injection will be added in the next infrastructure step.
+## Server
+
+`./scripts/setup-infra.sh` sets up production from scratch and is safe to re-run. It walks through creating the VPS and DNS, runs the server setup, saves the production and backup items in 1Password, writes the server's `.env` from them, makes the first deploy and creates GitHub's deploy key. Agents never run it. It needs `op`, `gh` and `age` (`brew install age`).
+
+The server scripts are in `scripts/server/` (decisions in [ADR 0005](docs/adr/0005-server-operations.md)). Everything lives in `/srv/studio-uto`: releases in `releases/`, the live one linked as `current`, and the database, media, `.env` and backups in `shared/`.
+
+```bash
+DOMAIN=studio-uto.ch scripts/server/provision.sh root@<host>   # install or update the server setup and scripts
+git archive <sha> | ssh uto@<host> studio-uto-deploy deploy <sha>
+ssh uto@<host> studio-uto-deploy rollback                        # back to the previous release
+ssh root@<host> journalctl -u studio-uto -f                      # app log
+```
+
+A deploy installs, migrates, builds, switches `current` and restarts the app. It then checks `/` and `/api/media?limit=1`. If that check fails, it switches back to the previous release by itself. Migrations stay applied after a rollback, so they must work with the previous release too. Before each migration the deploy saves a database snapshot in `shared/backups/pre-deploy/`.
+
+Caddy serves `/api/media/file/*` straight from `shared/media` and proxies everything else to Next on `127.0.0.1:3000`.
+
+`pnpm db:pull` copies production to `data/payload.db` and `media/` for debugging. Set `STUDIO_UTO_SSH=uto@<host>` or pass the target. The server replaces personal data before the copy leaves it, and every local user can log in with the password `uto-local`. Your previous local files go to `data/before-pull/`. A new table stops the pull until it is classified in `scripts/server/anonymise.ts`.
 
 ## Backups
 
-The next infrastructure step will add daily backups: a consistent SQLite snapshot plus a media tarball, encrypted because future bookings will hold personal data. Backups will go to the shared DigitalOcean backup Space under `studio-uto/`, with one latest copy kept on the server. These backups are planned, not yet configured.
+Every night at 03:15 Swiss time, `studio-uto-backup.timer` takes a SQLite snapshot, packs it with the media and encrypts it with age. It uploads the archive to the shared DigitalOcean backup Space under `studio-uto/backups/` and keeps 7 daily, 4 weekly and 12 monthly copies. The private key needed to decrypt them is only in the 1Password item `studio-uto-website backups` (`BACKUP_AGE_IDENTITY`). The server keeps the latest unencrypted archive in `shared/backups/latest.tar.gz`, and `shared/backups/last-success` records the last good run.
+
+Run one by hand with `ssh root@<host> systemctl start studio-uto-backup.service`. To restore, copy an archive to the server and run `studio-uto-restore <file.tar.gz>` as root. An `.age` file also needs the identity file: `studio-uto-restore <file.tar.gz.age> <identity-file>`. The restore stops the app, moves the current database and media to `shared/backups/pre-restore-<timestamp>/`, puts the backup in place and starts the app again.

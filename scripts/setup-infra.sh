@@ -184,12 +184,20 @@ finish() {
 # Replace the example below. Set TOTAL_STAGES to match the stages you write.
 # ──────────────────────────────────────────────────────────────────────────
 
-# Studio Uto infrastructure: DigitalOcean Space + MongoDB, 1Password items,
-# GitHub backup secret, Vercel project. Mirrors CITY STAY's setup.
+# Studio Uto production server: VPS, DNS, server setup, secrets from
+# 1Password, encrypted backups, first deploy and GitHub deploy access.
 # Run from the repo root: ./scripts/setup-infra.sh
+# Safe to re-run: it remembers the host and domain in .env.infra (no secrets)
+# and never rotates an existing secret.
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+ENV_FILE=".env.infra"
 
 VAULT="Environment Variables"
 ITEM_PREFIX="studio-uto-website"
+PROD_ITEM="$ITEM_PREFIX env production"
+BACKUP_ITEM="$ITEM_PREFIX backups"
+ROOT_DIR="/srv/studio-uto"
 
 # op_upsert ITEM FIELD=VALUE... creates or updates a Secure Note in the vault
 # with one concealed field per env var, named exactly like the variable.
@@ -205,131 +213,221 @@ op_upsert() {
   printf '  %s✓ saved%s 1Password item "%s" (%s fields)\n' "$GREEN" "$RESET" "$item" "$#"
 }
 
-TOTAL_STAGES=9
+# op_field ITEM FIELD prints a field's value, or nothing when it is missing.
+# A failed read can also mean a lost sign-in, so check that first: treating it
+# as "missing" would make the wizard generate a replacement secret.
+op_field() {
+  op whoami >/dev/null 2>&1 || { warn "1Password is signed out: eval \$(op signin), then re-run."; exit 1; }
+  local value
+  if value=$(op read "op://$VAULT/$1/$2" 2>&1); then
+    printf '%s' "$value"
+  else
+    # Shown right before new_secret_ok asks, so a network error isn't mistaken for a missing field.
+    warn "1Password could not read $1/$2: $value" >&2
+  fi
+}
 
-banner "Studio Uto: CMS infrastructure"
+# new_secret_ok "what" asks before generating a secret that may already exist.
+new_secret_ok() {
+  warn "No $1 found in 1Password (see the error above)."
+  confirm "Create a new one? Only on first setup: if the error above is not \"no such field or item\", answer No and re-run."
+}
+
+# inject_shared TEMPLATE NAME resolves TEMPLATE with op inject, then uploads it.
+# Nothing reaches the server unless the injection fully succeeded.
+inject_shared() {
+  local content
+  content=$(op inject -i "$1") || { warn "op inject failed; the server's $2 is unchanged."; exit 1; }
+  printf '%s\n' "$content" | upload_shared "$2" 600
+}
+
+# as_root / as_uto run a command on the server over SSH.
+as_root() { ssh "root@$SERVER_HOST" "$@"; }
+as_uto()  { ssh "uto@$SERVER_HOST" "$@"; }
+
+# upload_shared NAME MODE writes stdin to $ROOT_DIR/shared/NAME as uto.
+upload_shared() {
+  as_uto "umask 077 && cat > '$ROOT_DIR/shared/$1.tmp' && chmod $2 '$ROOT_DIR/shared/$1.tmp' && mv '$ROOT_DIR/shared/$1.tmp' '$ROOT_DIR/shared/$1'"
+  printf '  %s✓ wrote%s %s on the server\n' "$GREEN" "$RESET" "$ROOT_DIR/shared/$1"
+}
+
+TOTAL_STAGES=11
+
+banner "Studio Uto: production server"
 
 stage "Check tools and sign-ins"
-for tool in op gh vercel pnpm openssl; do
-  if command -v "$tool" >/dev/null 2>&1; then say "✓ $tool"; else warn "$tool is missing; install it, then re-run"; exit 1; fi
+for tool in op gh ssh ssh-keygen ssh-keyscan age-keygen openssl git dig; do
+  if command -v "$tool" >/dev/null 2>&1; then say "✓ $tool"; else warn "$tool is missing; install it (age-keygen: brew install age), then re-run"; exit 1; fi
 done
 op whoami >/dev/null 2>&1 || { step "Sign in to 1Password first: eval \$(op signin)"; exit 1; }
 gh auth status >/dev/null 2>&1 || { step "Sign in to GitHub first: gh auth login"; exit 1; }
 say "All tools ready, signed in to 1Password and GitHub."
 pause
 
-stage "Use the existing maji Space"
-say "CMS media lives in the shared maji Space, under studio-uto/."
-open_url "https://cloud.digitalocean.com/spaces/maji"
-step "Open the Space's settings page and check its region and whether CDN is enabled."
-step "Enable CDN if it is not enabled."
-note "The region is likely fra1 (Frankfurt); copy the actual region from settings."
-ask SPACE_NAME "Space name [maji]:"; SPACE_NAME="${SPACE_NAME:-maji}"
-ask SPACE_REGION "Region (from the Space's settings):"
-while [[ -z "$SPACE_REGION" ]]; do
-  warn "Enter the region from the Space's settings."
-  ask SPACE_REGION "Region:"
+stage "Create the VPS"
+say "Any provider works. The scripts only assume plain Ubuntu and SSH."
+step "Create a server: Ubuntu 24.04 LTS, 4 GB RAM, 2 vCPU, a region close to Switzerland."
+step "Add your SSH public key for root while creating it."
+step "Skip any marketplace or one-click app images."
+note "Your public key: $(ssh-add -L 2>/dev/null | head -n1 | cut -c1-60)…"
+ask SERVER_HOST "Server IPv4 address:"
+while [[ -z "$SERVER_HOST" ]]; do ask SERVER_HOST "Server IPv4 address:"; done
+write_env SERVER_HOST "$SERVER_HOST"
+until ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new "root@$SERVER_HOST" true 2>/dev/null; do
+  warn "ssh root@$SERVER_HOST does not work yet."
+  confirm "Try again?" || exit 1
 done
-S3_ENDPOINT="https://${SPACE_REGION}.digitaloceanspaces.com"
-S3_PUBLIC_ENDPOINT="https://${SPACE_NAME}.${SPACE_REGION}.cdn.digitaloceanspaces.com"
-note "Endpoint $S3_ENDPOINT, CDN $S3_PUBLIC_ENDPOINT"
+say "✓ ssh root@$SERVER_HOST works."
 pause
 
-stage "Spaces access key"
-open_url "https://cloud.digitalocean.com/spaces/access_keys"
-step "Create Access Key → Limited Access → bucket \"$SPACE_NAME\" → Read/Write/Delete."
-warn "DigitalOcean limited keys are per bucket: this key grants access to the whole $SPACE_NAME Space, including other projects."
-step "Name it studio-uto-website. Copy both values; the secret is shown only once."
-ask_secret S3_ACCESS_KEY_ID "Access key ID:"
-ask_secret S3_SECRET_ACCESS_KEY "Secret key:"
-
-stage "MongoDB connection strings"
-say "Production and staging each get their own database."
-open_url "https://cloud.digitalocean.com/databases"
-step "Open the MongoDB cluster to use (CITY STAY's cluster is fine) or create one in FRA1."
-step "Users & Databases: add databases studio-uto and studio-uto-staging."
-step "Overview → Connection details → Connection string. Copy it."
-step "Paste it twice below, with the database name in the path (…/studio-uto?… and …/studio-uto-staging?…)."
-note "Vercel has no fixed IPs, so the cluster's trusted sources must allow it as CITY STAY's does."
-ask_secret MONGO_PROD_URI "Production URI (…/studio-uto?…):"
-ask_secret MONGO_STAGING_URI "Staging URI (…/studio-uto-staging?…):"
-
-stage "Save the environments to 1Password"
-say "Three items, fields named like the env vars, read by pnpm env:local / env:vercel."
-ask PROD_URL "Production URL [https://studio-uto.ch]:"; PROD_URL="${PROD_URL:-https://studio-uto.ch}"
-ask STAGING_URL "Staging URL (e.g. the Vercel preview domain):"
-common=(
-  "S3_BUCKET=$SPACE_NAME" "S3_REGION=$SPACE_REGION" "S3_ENDPOINT=$S3_ENDPOINT"
-  "S3_ACCESS_KEY_ID=$S3_ACCESS_KEY_ID" "S3_SECRET_ACCESS_KEY=$S3_SECRET_ACCESS_KEY"
-  "NEXT_PUBLIC_S3_PUBLIC_ENDPOINT=$S3_PUBLIC_ENDPOINT"
-)
-op_upsert "$ITEM_PREFIX env production" \
-  "DATABASE_URI=$MONGO_PROD_URI" "PAYLOAD_SECRET=$(openssl rand -hex 32)" \
-  "NEXT_PUBLIC_SERVER_URL=$PROD_URL" "${common[@]}"
-op_upsert "$ITEM_PREFIX env staging" \
-  "DATABASE_URI=$MONGO_STAGING_URI" "PAYLOAD_SECRET=$(openssl rand -hex 32)" \
-  "NEXT_PUBLIC_SERVER_URL=$STAGING_URL" "NEXT_PUBLIC_MEDIA_POSTFIX=staging" "${common[@]}"
-op_upsert "$ITEM_PREFIX env local" \
-  "DATABASE_URI=mongodb://127.0.0.1:27018/studio-uto" "PAYLOAD_SECRET=$(openssl rand -hex 32)" \
-  "NEXT_PUBLIC_SERVER_URL=http://localhost:3060" "NEXT_PUBLIC_MEDIA_POSTFIX=local"
-note "Local stores uploads on disk; add the S3 fields to the local item to test against Spaces."
-warn "Re-running this stage rotates PAYLOAD_SECRET, which signs everyone out."
+stage "Point the domain at the server"
+ask DOMAIN "Domain without www [studio-uto.ch]:"; DOMAIN="${DOMAIN:-studio-uto.ch}"
+write_env DOMAIN "$DOMAIN"
+step "At the DNS provider for $DOMAIN, set these records (TTL 300 while testing):"
+note "    A    $DOMAIN        → $SERVER_HOST"
+note "    A    www.$DOMAIN    → $SERVER_HOST"
+note "  Remove any old A, AAAA or CNAME records for both names (Vercel's included)."
+note "  Add AAAA records too if the server has an IPv6 address."
+pause "Saved the records? Press Enter to check"
+until [[ "$(dig +short A "$DOMAIN" @1.1.1.1 | tail -n1)" == "$SERVER_HOST" && \
+         "$(dig +short A "www.$DOMAIN" @1.1.1.1 | tail -n1)" == "$SERVER_HOST" ]]; do
+  warn "$DOMAIN or www.$DOMAIN does not resolve to $SERVER_HOST yet."
+  confirm "Check again? (No continues anyway; Caddy retries the certificate until DNS is right)" || break
+done
+say "DNS done."
 pause
 
-stage "Backup credentials"
-say "The nightly workflows read a separate item, so backup keys never reach Vercel."
-say "Backups go into the shared backup Space, under studio-uto/."
-CS="op://$VAULT/city-stay-website backups"
-if confirm "Reuse the backup Space key from the \"city-stay-website backups\" item?"; then
-  DO_BACKUP_SPACE_KEY=$(op read "$CS/DO_BACKUP_SPACE_KEY")
-  DO_BACKUP_SPACE_SECRET=$(op read "$CS/DO_BACKUP_SPACE_SECRET")
-  DO_BACKUP_SPACE_NAME=$(op read "$CS/DO_BACKUP_SPACE_NAME")
-  DO_BACKUP_SPACE_REGION=$(op read "$CS/DO_BACKUP_SPACE_REGION")
+stage "Install and configure the server"
+say "Installs Node 24, pnpm, Caddy, sqlite3, age and s3cmd, creates the uto user,"
+say "the /srv/studio-uto folders, the systemd units, the Caddyfile and the firewall."
+note "Safe to re-run; it is also how server scripts get updated later."
+ask ACME_EMAIL "Email for Let's Encrypt expiry notices (optional):"
+write_env ACME_EMAIL "$ACME_EMAIL"
+confirm "Run the setup on root@$SERVER_HOST now?" || exit 1
+DOMAIN="$DOMAIN" ACME_EMAIL="$ACME_EMAIL" scripts/server/provision.sh "root@$SERVER_HOST"
+ssh -o BatchMode=yes "uto@$SERVER_HOST" true || { warn "ssh uto@$SERVER_HOST fails; check /home/uto/.ssh/authorized_keys"; exit 1; }
+say "✓ Server set up, ssh uto@$SERVER_HOST works."
+pause
+
+stage "Production secrets"
+say "Saves the production item in 1Password, then writes the server's .env from it."
+say "The server never gets a 1Password token: re-run this stage after changing the item."
+PAYLOAD_SECRET=$(op_field "$PROD_ITEM" PAYLOAD_SECRET)
+if [[ -n "$PAYLOAD_SECRET" ]]; then
+  note "Keeping the existing PAYLOAD_SECRET."
 else
-  ask DO_BACKUP_SPACE_NAME "Backup Space name:"
-  ask DO_BACKUP_SPACE_REGION "Backup Space region:"
-  ask_secret DO_BACKUP_SPACE_KEY "Backup Space access key ID:"
-  ask_secret DO_BACKUP_SPACE_SECRET "Backup Space secret key:"
+  new_secret_ok PAYLOAD_SECRET || exit 1
+  PAYLOAD_SECRET=$(openssl rand -hex 32)
 fi
-op_upsert "$ITEM_PREFIX backups" \
-  "MONGO_LIVE_URI=$MONGO_PROD_URI" \
-  "DO_LIVE_SPACE_NAME=$SPACE_NAME" "DO_LIVE_SPACE_REGION=$SPACE_REGION" \
-  "DO_LIVE_SPACE_KEY=$S3_ACCESS_KEY_ID" "DO_LIVE_SPACE_SECRET=$S3_SECRET_ACCESS_KEY" \
-  "DO_BACKUP_SPACE_NAME=$DO_BACKUP_SPACE_NAME" "DO_BACKUP_SPACE_REGION=$DO_BACKUP_SPACE_REGION" \
-  "DO_BACKUP_SPACE_KEY=$DO_BACKUP_SPACE_KEY" "DO_BACKUP_SPACE_SECRET=$DO_BACKUP_SPACE_SECRET"
+op_upsert "$PROD_ITEM" \
+  "DATABASE_URI=file:$ROOT_DIR/shared/data/payload.db" \
+  "PAYLOAD_SECRET=$PAYLOAD_SECRET" \
+  "NEXT_PUBLIC_SERVER_URL=https://$DOMAIN" \
+  "MEDIA_DIR=$ROOT_DIR/shared/media"
+unset PAYLOAD_SECRET
+inject_shared .env.tpl .env
+if as_uto "test -L $ROOT_DIR/current"; then
+  as_uto "sudo -n /usr/bin/systemctl restart studio-uto.service" && say "✓ Restarted the app with the new values."
+fi
 pause
 
-stage "GitHub: 1Password service account token"
-say "The backup workflows resolve op:// references with the read-only service account"
-say "that CITY STAY uses. Its token goes into this repo's secrets."
-open_url "https://my.1password.com/developer-tools/active"
-step "Service Accounts → the account scoped to \"$VAULT\" → make sure it can read the new items."
-step "Copy its token (stored in 1Password when it was created)."
-ask_secret OP_SERVICE_ACCOUNT_TOKEN "Service account token (ops_…):"
-set_secret OP_SERVICE_ACCOUNT_TOKEN "$OP_SERVICE_ACCOUNT_TOKEN"
-
-stage "Vercel project and environment"
-say "Link this repo to a new Vercel project in the Maji team, then push the env."
-step "When asked: scope Maji, link to a NEW project named studio-uto-website."
-vercel link
-step "In the project's Settings → Git, connect Maji-Studio/studio-uto-website if it isn't yet."
-step "Settings → Build and Deployment → Node.js Version: 24.x."
-open_url "https://vercel.com/dashboard"
-pause "Done in the dashboard? Press Enter to sync env vars"
-pnpm env:vercel
-
-stage "Seed staging and production"
-say "Loads today's site content and images into the remote databases and Spaces."
-if confirm "Seed STAGING now?"; then
-  op run --env-file=.env.tpl -- env SEED_ALLOW_REMOTE=true VERCEL_ENV=preview pnpm seed
+stage "Backup encryption key"
+say "Backups are encrypted with age. The server only gets the public key, so it can"
+say "write backups but not read them. The private key lives only in 1Password."
+AGE_IDENTITY=$(op_field "$BACKUP_ITEM" BACKUP_AGE_IDENTITY)
+if [[ -n "$AGE_IDENTITY" ]]; then
+  note "Using the existing key from \"$BACKUP_ITEM\"."
+else
+  new_secret_ok "backup key (BACKUP_AGE_IDENTITY)" || exit 1
+  AGE_IDENTITY=$(age-keygen 2>/dev/null | grep '^AGE-SECRET-KEY-')
+  op_upsert "$BACKUP_ITEM" "BACKUP_AGE_IDENTITY=$AGE_IDENTITY"
 fi
-if confirm "Seed PRODUCTION now? (only before launch, while it is empty)"; then
-  # Production has no media postfix field, and op run fails on a missing one.
-  op run --env-file=<(sed -e 's/env staging\//env production\//' -e '/NEXT_PUBLIC_MEDIA_POSTFIX/d' .env.tpl) -- \
-    env SEED_ALLOW_REMOTE=true VERCEL_ENV=production pnpm seed
+AGE_RECIPIENT=$(printf '%s\n' "$AGE_IDENTITY" | age-keygen -y)
+unset AGE_IDENTITY
+printf '%s\n' "$AGE_RECIPIENT" | upload_shared backup-recipients.txt 644
+warn "Without this key the backups cannot be restored. Don't delete the 1Password field."
+pause
+
+stage "Backup Space access key"
+say "Backups go to the shared DigitalOcean backup Space, under studio-uto/backups/."
+CS="op://$VAULT/city-stay-website backups"
+if [[ -n "$(op_field "$BACKUP_ITEM" DO_BACKUP_SPACE_KEY)" ]] && ! confirm "\"$BACKUP_ITEM\" already has a Space key. Replace it?"; then
+  note "Keeping the saved Space key."
+elif confirm "Reuse the backup Space key from the \"city-stay-website backups\" item?"; then
+  op_upsert "$BACKUP_ITEM" \
+    "DO_BACKUP_SPACE_KEY=$(op read "$CS/DO_BACKUP_SPACE_KEY")" \
+    "DO_BACKUP_SPACE_SECRET=$(op read "$CS/DO_BACKUP_SPACE_SECRET")" \
+    "DO_BACKUP_SPACE_NAME=$(op read "$CS/DO_BACKUP_SPACE_NAME")" \
+    "DO_BACKUP_SPACE_REGION=$(op read "$CS/DO_BACKUP_SPACE_REGION")"
+else
+  open_url "https://cloud.digitalocean.com/spaces/access_keys"
+  step "Create Access Key → Limited Access → the backup Space → Read/Write/Delete."
+  step "Name it studio-uto-backups. Copy both values; the secret is shown only once."
+  ask DO_BACKUP_SPACE_NAME "Backup Space name:"
+  ask DO_BACKUP_SPACE_REGION "Backup Space region (e.g. fra1):"
+  ask_secret DO_BACKUP_SPACE_KEY "Access key ID:"
+  ask_secret DO_BACKUP_SPACE_SECRET "Secret key:"
+  op_upsert "$BACKUP_ITEM" \
+    "DO_BACKUP_SPACE_KEY=$DO_BACKUP_SPACE_KEY" "DO_BACKUP_SPACE_SECRET=$DO_BACKUP_SPACE_SECRET" \
+    "DO_BACKUP_SPACE_NAME=$DO_BACKUP_SPACE_NAME" "DO_BACKUP_SPACE_REGION=$DO_BACKUP_SPACE_REGION"
+  unset DO_BACKUP_SPACE_KEY DO_BACKUP_SPACE_SECRET
 fi
-note "Once this branch is on main, start one backup run by hand to check it:"
-note "  gh workflow run backup_mongo_db.yml && gh workflow run backup_do_spaces.yml"
-note "Local dev: pnpm env:local && pnpm dev, then create the first user at /admin."
+warn "DigitalOcean keys are per Space: this one can also delete other projects' backups there."
+inject_shared scripts/server/backup.env.tpl backup.env
+pause
+
+stage "First deploy"
+SHA=$(git rev-parse HEAD)
+say "Deploys the commit checked out here: $(git rev-parse --abbrev-ref HEAD) @ ${SHA:0:12}."
+note "Later deploys run from GitHub on every push to main."
+[[ -n "$(git status --porcelain --untracked-files=no)" ]] && warn "Uncommitted changes are not deployed."
+note "Installs, migrates and builds on the server: this takes a few minutes."
+SEED=0
+if as_uto "test -L $ROOT_DIR/current"; then
+  note "A release is already live, so this deploys without loading content."
+else
+  say "The pages cannot be built from an empty database, so the first deploy loads"
+  say "today's content and images before it builds."
+  SEED=1
+fi
+confirm "Deploy ${SHA:0:12} to $SERVER_HOST now?" || exit 1
+git archive --format=tar "$SHA" | as_uto STUDIO_UTO_SEED=$SEED studio-uto-deploy deploy "$SHA"
+say "✓ https://$DOMAIN is live."
+pause
+
+stage "First admin user"
+open_url "https://$DOMAIN/admin"
+step "Create the first user. It becomes the admin."
+step "Then check the site: https://$DOMAIN/"
+pause "Created the user and checked the site? Press Enter to continue"
+
+stage "GitHub deploy access"
+say "GitHub Actions deploys over SSH with its own key. On the server that key can"
+say "only run studio-uto-deploy (deploy <sha> or rollback), nothing else."
+KEY_DIR=$(mktemp -d)
+trap 'rm -rf "$KEY_DIR"' EXIT
+if confirm "Create a new deploy key? (No keeps the current one; Yes replaces it)"; then
+  ssh-keygen -q -t ed25519 -N '' -C "github-actions studio-uto-website" -f "$KEY_DIR/deploy"
+  DEPLOY_SSH_PUBLIC_KEY=$(cut -d' ' -f1,2 "$KEY_DIR/deploy.pub")
+  DOMAIN="$DOMAIN" ACME_EMAIL="$ACME_EMAIL" DEPLOY_SSH_PUBLIC_KEY="$DEPLOY_SSH_PUBLIC_KEY" \
+    scripts/server/provision.sh "root@$SERVER_HOST"
+  set_secret DEPLOY_SSH_KEY "$(cat "$KEY_DIR/deploy")"
+fi
+set_secret DEPLOY_KNOWN_HOSTS "$(ssh-keyscan -t ed25519 "$SERVER_HOST" 2>/dev/null)"
+set_var DEPLOY_HOST "$SERVER_HOST"
+rm -rf "$KEY_DIR"
+pause
+
+stage "First backup"
+say "The backup timer runs every night at 03:15 Swiss time. This runs it once now."
+as_root "systemctl start studio-uto-backup.service" || warn "The backup failed; the log follows."
+as_root "journalctl -u studio-uto-backup.service -n 30 --no-pager"
+as_root "cat $ROOT_DIR/shared/backups/last-success 2>/dev/null" || warn "No successful backup yet."
+note "Restore drill: studio-uto-restore <file> on the server (see README → Backups)."
+pause
 
 finish
+note "Everyday commands:"
+note "  ssh uto@$SERVER_HOST                              # look around"
+note "  STUDIO_UTO_SSH=uto@$SERVER_HOST pnpm db:pull      # anonymised copy for local debugging"
+note "  ssh root@$SERVER_HOST journalctl -u studio-uto -f  # app log"
