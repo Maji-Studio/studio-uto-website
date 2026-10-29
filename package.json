@@ -17,6 +17,7 @@
     "env:local": "tsx scripts/env-local-inject.ts",
     "env:check": "tsx scripts/check-env-drift.ts",
     "seed": "cross-env NODE_OPTIONS=--no-deprecation payload run scripts/seed.ts",
+    "db:pull": "bash scripts/db-pull.sh",
     "migrate": "cross-env NODE_OPTIONS=--no-deprecation payload migrate",
     "migrate:create": "cross-env NODE_OPTIONS=--no-deprecation payload migrate:create"
   },
