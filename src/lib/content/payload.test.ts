@@ -23,6 +23,12 @@ const media: Media = {
 };
 
 describe("toContentImage", () => {
+  it("drops the trailing slash Payload adds to file URLs", () => {
+    expect(
+      toContentImage({ ...media, url: "/api/media/file/a.jpg/" })?.src,
+    ).toBe("/api/media/file/a.jpg");
+  });
+
   it("prefers the main file when a size is missing and preserves the crop", () => {
     expect(
       toContentImage(

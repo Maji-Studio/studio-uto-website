@@ -2,25 +2,21 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import {
-  getInformationSections,
-  getSiteSettings,
-  getStudioSections,
-} from "@/lib/content";
+// The content a fresh database starts with (pnpm seed). Edits made later in
+// the CMS are the editors' to keep linked.
+import { sections, siteSettings } from "../scripts/seed-data";
 
 const appDir = fileURLToPath(
   new URL("../src/app/(frontend)/", import.meta.url),
 );
 
-const { primaryNav, socials } = await getSiteSettings();
-const studioSections = await getStudioSections();
-const informationSections = await getInformationSections();
+const { primaryNav, socials } = siteSettings;
 
 // Anchor ids rendered on each page, by pathname. The full fact sheet lives on
 // /information/; the Tarife prices sit on the unlinked /sketch/ page.
 const anchors: Record<string, string[]> = {
   "/": [],
-  "/information/": informationSections.map((s) => s.id),
+  "/information/": sections.map((s) => s.anchor),
   "/sketch/": ["preise"],
 };
 
@@ -29,8 +25,8 @@ function pageExists(pathname: string) {
   return existsSync(`${appDir}${slug ? `${slug}/` : ""}page.tsx`);
 }
 
-const contentLinks = [...studioSections, ...informationSections].flatMap(
-  (section) => section.blocks.flatMap((block) => block.links ?? []),
+const contentLinks = sections.flatMap((section) =>
+  section.blocks.flatMap((block) => block.links ?? []),
 );
 
 const internal = [...primaryNav, ...socials, ...contentLinks]

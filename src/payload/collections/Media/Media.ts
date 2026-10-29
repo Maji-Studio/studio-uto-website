@@ -1,4 +1,5 @@
 import type { CollectionConfig, ImageSize } from "payload";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { anyone } from "../../access/anyone";
 import { authenticated } from "../../access/authenticated";
@@ -7,6 +8,8 @@ import {
   revalidateAfterDelete,
 } from "../../utilities/revalidate";
 import { resizeOversizedOriginal } from "./resizeOversizedOriginal";
+
+const dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // V4 authors image sizes on the transformer and stores them as variants.
 export const mediaVariants: ImageSize[] = [
@@ -46,7 +49,7 @@ export const Media: CollectionConfig = {
     { name: "caption", label: "Bildlegende", type: "text" },
   ],
   upload: {
-    staticDir: fileURLToPath(new URL("../../../../media", import.meta.url)),
+    staticDir: path.resolve(dirname, "../../../../media"),
     mimeTypes: ["image/*"],
     adminThumbnail: "thumbnail",
   },

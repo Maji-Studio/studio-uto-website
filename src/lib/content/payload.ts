@@ -29,7 +29,9 @@ export function toContentImage(
   if (!file?.url || !file.width || !file.height) return undefined;
   const objectPosition = clean(extra.objectPosition);
   return {
-    src: file.url,
+    // Payload follows next.config's trailingSlash when it builds file URLs,
+    // and /api/media/file/x.jpg/ answers with a redirect next/image won't follow.
+    src: file.url.replace(/\/+$/, ""),
     width: file.width,
     height: file.height,
     alt: media.alt,
