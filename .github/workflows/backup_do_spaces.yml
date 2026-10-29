@@ -45,7 +45,7 @@ jobs:
       - name: Sync from source Space to local
         run: |
           mkdir -p ./space-backup
-          s3cmd --config "$RUNNER_TEMP/s3cfg" sync s3://${DO_LIVE_SPACE_NAME}/ ./space-backup/
+          s3cmd --config "$RUNNER_TEMP/s3cfg" sync s3://${DO_LIVE_SPACE_NAME}/studio-uto/ ./space-backup/
 
       - name: Create tarball of backup
         run: |

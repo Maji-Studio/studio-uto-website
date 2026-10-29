@@ -10,6 +10,8 @@ Content lives in Payload CMS (`/admin`). The pages never read Payload directly: 
 | Media | collection `media` | every content image, with its alt text | — |
 | Users | collection `users` | admins and editors | — |
 
+Media uploads keep the untouched source copy. Raster images become WebP at upload: a main file at most 2560 px wide and 480/768/1280/1920 px variants, without enlargement. SVG stays unchanged. The mapper returns the main file and a width-sorted `srcSet`, excluding the admin thumbnail. Files live in the shared `maji` Space under `studio-uto/media/` in production and `studio-uto/media-<postfix>/` elsewhere. The site uses CDN URLs directly, without Next image optimization.
+
 ## Information sections
 
 Each section has an anchor (the `#id` on `/information/`), a title, an optional short nav label and blocks. A block can combine:

@@ -34,7 +34,9 @@ First run: `pnpm env:local` (or copy `.env.example` to `.env` and set `PAYLOAD_S
 
 ## CMS and media
 
-Editors change content at `/admin`. Saving revalidates the pages, so no rebuild is needed. Images are uploaded to the `media` collection. In deployed environments they are stored in the DigitalOcean Space (prefix `media/` in production, `media-<NEXT_PUBLIC_MEDIA_POSTFIX>/` elsewhere) and served from its CDN. Locally, without S3 variables, they go to `media/` on disk.
+Editors change content at `/admin`. Saving revalidates the pages, so no rebuild is needed. Images are uploaded to the `media` collection. In deployed environments they live in the shared DigitalOcean Space `maji`, under `studio-uto/media/` in production and `studio-uto/media-<postfix>/` elsewhere (`NEXT_PUBLIC_MEDIA_POSTFIX`, default `local`). Locally, without S3 variables, they go to `media/` on disk.
+
+Raster images are converted to WebP once at upload: the main file is at most 2560 px wide, with 480/768/1280/1920 px variants, without enlargement. The untouched original is kept as the source copy. SVG uploads stay unchanged. The site links directly to the Spaces CDN, with no Next image optimization. A separate 400×300 thumbnail is for the admin UI.
 
 ## Environments and secrets
 
@@ -44,4 +46,4 @@ Setting up the cloud side (Space, MongoDB databases, 1Password items, GitHub sec
 
 ## Backups
 
-`.github/workflows/backup_mongo_db.yml` and `backup_do_spaces.yml` run daily at 01:30 UTC. They write to the shared backup Space under `studio-uto/mongodb/` and `studio-uto/spaces/` and keep 7 daily, 4 weekly and 12 monthly copies. Credentials come from the 1Password item `studio-uto-website backups` through the `OP_SERVICE_ACCOUNT_TOKEN` repo secret. Restore Mongo with the command at the top of the Mongo workflow.
+`.github/workflows/backup_mongo_db.yml` and `backup_do_spaces.yml` run daily at 01:30 UTC. The Spaces backup covers only `studio-uto/` in the shared `maji` Space. They write to the shared backup Space under `studio-uto/mongodb/` and `studio-uto/spaces/` and keep 7 daily, 4 weekly and 12 monthly copies. Credentials come from the 1Password item `studio-uto-website backups` through the `OP_SERVICE_ACCOUNT_TOKEN` repo secret. Restore Mongo with the command at the top of the Mongo workflow.

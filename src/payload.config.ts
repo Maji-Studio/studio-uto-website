@@ -23,8 +23,8 @@ const isProduction = process.env.VERCEL_ENV
   ? process.env.VERCEL_ENV === "production"
   : process.env.NODE_ENV === "production";
 const mediaPrefix = isProduction
-  ? "media"
-  : `media-${process.env.NEXT_PUBLIC_MEDIA_POSTFIX || "local"}`;
+  ? "studio-uto/media"
+  : `studio-uto/media-${process.env.NEXT_PUBLIC_MEDIA_POSTFIX || "local"}`;
 
 export default buildConfig({
   admin: {
@@ -40,7 +40,20 @@ export default buildConfig({
   db: mongooseAdapter({ url: process.env.DATABASE_URI || "" }),
   upload: {
     transformers: [
-      sharpTransformer({ collections: { media: { variants: mediaVariants } } }),
+      sharpTransformer({
+        dynamic: false,
+        collections: {
+          media: {
+            resizeOptions: {
+              width: 2560,
+              fit: "inside",
+              withoutEnlargement: true,
+            },
+            formatOptions: { format: "webp", options: { quality: 82 } },
+            variants: mediaVariants,
+          },
+        },
+      }),
     ],
   },
   storage: [

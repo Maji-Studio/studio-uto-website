@@ -27,11 +27,23 @@ export function toContentImage(
         .filter((variant) => variant?.url && variant.width && variant.height)
         .sort((a, b) => (b.width ?? 0) - (a.width ?? 0))[0];
   if (!file?.url || !file.width || !file.height) return undefined;
+  const candidates = new Map<number, string>();
+  for (const [name, variant] of Object.entries(media.variants ?? {})) {
+    if (name !== "thumbnail" && variant?.url && variant.width) {
+      candidates.set(variant.width, variant.url.replace(/\/+$/, ""));
+    }
+  }
+  // Prefer the main file when a small upload produces variants of equal width.
+  candidates.set(file.width, file.url.replace(/\/+$/, ""));
+  const srcSet = [...candidates]
+    .sort(([a], [b]) => a - b)
+    .map(([width, url]) => `${url} ${width}w`)
+    .join(", ");
   const objectPosition = clean(extra.objectPosition);
   return {
-    // Payload follows next.config's trailingSlash when it builds file URLs,
-    // and /api/media/file/x.jpg/ answers with a redirect next/image won't follow.
+    // Local file URLs inherit Next's trailingSlash and otherwise redirect.
     src: file.url.replace(/\/+$/, ""),
+    ...(candidates.size > 1 ? { srcSet } : {}),
     width: file.width,
     height: file.height,
     alt: media.alt,

@@ -7,19 +7,26 @@ import {
   revalidateAfterChange,
   revalidateAfterDelete,
 } from "../../utilities/revalidate";
-import { resizeOversizedOriginal } from "./resizeOversizedOriginal";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // V4 authors image sizes on the transformer and stores them as variants.
 export const mediaVariants: ImageSize[] = [
-  { name: "thumbnail", width: 400, height: 300, withoutEnlargement: true },
+  {
+    name: "thumbnail",
+    width: 400,
+    height: 300,
+    fit: "cover" as const,
+    withoutEnlargement: true,
+  },
   { name: "sm", width: 480, withoutEnlargement: true },
   { name: "md", width: 768, withoutEnlargement: true },
   { name: "lg", width: 1280, withoutEnlargement: true },
   { name: "xl", width: 1920, withoutEnlargement: true },
-  { name: "2xl", width: 2560, withoutEnlargement: true },
-];
+].map((variant) => ({
+  ...variant,
+  formatOptions: { format: "webp", options: { quality: 80 } },
+}));
 
 export const Media: CollectionConfig = {
   slug: "media",
@@ -32,7 +39,6 @@ export const Media: CollectionConfig = {
     delete: authenticated,
   },
   hooks: {
-    beforeOperation: [resizeOversizedOriginal],
     afterChange: [revalidateAfterChange],
     afterDelete: [revalidateAfterDelete],
   },
