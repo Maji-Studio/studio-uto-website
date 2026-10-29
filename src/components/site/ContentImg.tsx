@@ -1,11 +1,10 @@
-import Image from "next/image";
 import type { CSSProperties } from "react";
 
 import type { ContentImage } from "@/lib/content/types";
 
 interface Props {
   image: ContentImage;
-  /** Responsive `sizes` hint; Next derives the width candidates from it. */
+  /** Responsive `sizes` hint; the browser picks from the image's `srcSet`. */
   sizes?: string;
   className?: string;
   loading?: "eager" | "lazy";
@@ -15,8 +14,9 @@ interface Props {
 }
 
 /**
- * A content image through `next/image`: works for bundled files and for remote
- * CMS URLs alike, since the intrinsic size always travels with the image.
+ * A content image as a plain `<img>`: the files were resized and converted
+ * once, on upload, and `srcSet` lists them (absent: just `src`). The intrinsic
+ * size always travels with the image so the layout never jumps.
  */
 export default function ContentImg({
   image,
@@ -30,14 +30,17 @@ export default function ContentImg({
     ? { objectPosition: image.objectPosition }
     : undefined;
   return (
-    <Image
+    // eslint-disable-next-line @next/next/no-img-element -- optimized ahead of time
+    <img
       className={className}
       src={image.src}
+      srcSet={image.srcSet || undefined}
+      sizes={image.srcSet ? sizes : undefined}
       width={image.width}
       height={image.height}
       alt={alt ?? image.alt}
-      sizes={sizes}
       loading={loading}
+      decoding="async"
       style={focal || style ? { ...focal, ...style } : undefined}
     />
   );

@@ -1,7 +1,4 @@
-import { getImageProps } from "next/image";
-
-import studio1 from "@/assets/studio/image-1.jpg";
-import studio2 from "@/assets/studio/image-2.jpg";
+import { staticImages } from "@/lib/static-images";
 
 import { pageTransitionScript } from "./page-transition-script";
 
@@ -11,11 +8,10 @@ import { pageTransitionScript } from "./page-transition-script";
  * footage is two studio stills at 1080 px wide.
  */
 export default function PageTransition() {
-  const reelSrcs = [studio2, studio1].map((img) => {
-    const { props } = getImageProps({ src: img, alt: "", width: 1080 });
-    // The 1x candidate: 1080 px wide.
-    return (props.srcSet ?? "").split(", ")[0].replace(/ 1x$/, "") || props.src;
-  });
+  const reelSrcs = [
+    staticImages.studioImage2.src,
+    staticImages.studioImage1.src,
+  ];
 
   return (
     <script

@@ -14,6 +14,7 @@
     "generate:importmap": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap",
     "generate:types": "cross-env NODE_OPTIONS=--no-deprecation payload generate:types",
     "docker:up": "docker compose up -d",
+    "optimize:static-images": "tsx scripts/optimize-static-images.ts",
     "env:local": "tsx scripts/env-local-inject.ts",
     "env:check": "tsx scripts/check-env-drift.ts",
     "env:vercel": "sh -c 'pnpm env:prod \"$@\" && pnpm env:preview \"$@\"' --",
