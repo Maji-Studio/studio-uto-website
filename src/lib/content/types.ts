@@ -6,7 +6,7 @@
  */
 
 /**
- * An image ready to render as a plain `<img>`: absolute CDN URLs to files that
+ * An image ready to render as a plain `<img>`: local file URLs to images that
  * were resized and converted once, on upload. Nothing is optimized per request.
  */
 export interface ContentImage {

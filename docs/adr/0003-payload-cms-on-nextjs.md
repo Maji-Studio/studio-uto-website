@@ -1,5 +1,7 @@
 # 3. Payload CMS 4 on Next.js, set up like CITY STAY
 
+Status: Superseded in part by [ADR 0004](0004-vps-sqlite-local-media.md) for hosting, storage, environments and backups. Payload 4 beta, Next.js, upload-time image optimization and the content model still stand.
+
 Date: 2026-10-29
 
 ## Context

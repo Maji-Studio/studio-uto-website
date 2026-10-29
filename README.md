@@ -1,27 +1,28 @@
 # Atelier Uto
 
-Studio Uto marketing website: Next.js 16 (App Router), React and TypeScript, with content in Payload CMS 4 (beta) at `/admin`. Styling is plain hand-written CSS (design tokens in `src/styles/global.css`, one stylesheet per component), no CSS framework. Why this stack: [ADR 0003](docs/adr/0003-payload-cms-on-nextjs.md).
+Studio Uto marketing website: Next.js 16 (App Router), React and TypeScript, with content in Payload CMS 4 (beta) at `/admin`. Styling is plain hand-written CSS (design tokens in `src/styles/global.css`, one stylesheet per component), no CSS framework. Why this stack: [ADR 0003](docs/adr/0003-payload-cms-on-nextjs.md). Hosting and storage: [ADR 0004](docs/adr/0004-vps-sqlite-local-media.md).
 
-Requires Node 24.22.1 or newer, pnpm and Docker (local MongoDB).
+Requires Node 24.22.1 or newer and pnpm.
 
 ## Commands
 
 ```bash
-pnpm dev                 # starts MongoDB (docker compose, port 27018) and Next on :3060
-pnpm build               # needs a reachable MongoDB: pages are pre-rendered from the CMS
+pnpm dev                 # starts Next on :3060 with local SQLite
+pnpm build               # reads the SQLite database to pre-render pages
 pnpm lint
 pnpm test
 
-pnpm seed                # loads today's content and images into the local database
+pnpm seed                # loads today's content and images; safe to run again
 pnpm generate:types      # after changing a collection or global
+pnpm migrate:create <name> # generates a schema migration to commit
+pnpm migrate             # applies committed migrations before a production build
 pnpm generate:importmap  # after adding admin components
 
 pnpm env:local           # writes .env.local from 1Password
-pnpm env:vercel          # syncs staging → Vercel Preview, production → Vercel Production
 pnpm env:check           # reports drift between the templates and 1Password
 ```
 
-First run: `pnpm env:local` (or copy `.env.example` to `.env` and set `PAYLOAD_SECRET`), `pnpm dev`, create the first user at `/admin` (it becomes admin), then `pnpm seed`.
+First run: `pnpm env:local` (or copy `.env.example` to `.env` and set `PAYLOAD_SECRET`), `pnpm dev`, create the first user at `/admin` (it becomes admin), then `pnpm seed`. Local development uses Payload's default schema push behaviour. After changing a collection or global: `pnpm generate:types`, then `pnpm migrate:create <name>`, and commit the migration with its generated index. Production runs `pnpm migrate` before `pnpm build`.
 
 ## Structure
 
@@ -34,16 +35,20 @@ First run: `pnpm env:local` (or copy `.env.example` to `.env` and set `PAYLOAD_S
 
 ## CMS and media
 
-Editors change content at `/admin`. Saving revalidates the pages, so no rebuild is needed. Images are uploaded to the `media` collection. In deployed environments they live in the shared DigitalOcean Space `maji`, under `studio-uto/media/` in production and `studio-uto/media-<postfix>/` elsewhere (`NEXT_PUBLIC_MEDIA_POSTFIX`, default `local`). Locally, without S3 variables, they go to `media/` on disk.
+Editors change content at `/admin`. Saving revalidates the pages, so no rebuild is needed. SQLite stores content at `file:./data/payload.db` by default, with WAL enabled. `DATABASE_URI` can point to an absolute file path on the server. The app creates the database folder if it is missing; it must be writable.
 
-Raster images are converted to WebP once at upload: the main file is at most 2560 px wide, with 480/768/1280/1920 px variants, without enlargement. The untouched original is kept as the source copy. SVG uploads stay unchanged. The site links directly to the Spaces CDN, with no Next image optimization. A separate 400×300 thumbnail is for the admin UI.
+Images are uploaded to the `media` collection and stored in the repo-root `media/` locally. Set `MEDIA_DIR` to an absolute path on the server, for example `/srv/studio-uto/shared/media`. Both directories stay outside version control. File URLs stay at `/api/media/file/<filename>`; the planned Caddy configuration will serve that path directly from `MEDIA_DIR` on the server.
+
+Raster images are converted to WebP once at upload: the main file is at most 2560 px wide, with 480/768/1280/1920 px variants, without enlargement. The untouched original is kept as the source copy. SVG uploads stay unchanged. The site uses the stored file URLs directly, with no Next image optimization. A separate 400×300 thumbnail is for the admin UI.
 
 ## Environments and secrets
 
-Secrets live in 1Password (vault `Environment Variables`), never in the repo: one item per environment, `studio-uto-website env local|staging|production`, with fields named like the env vars. `.env.local.tpl` and `.env.tpl` hold `op://` references only. Agents never run `op` themselves.
+Secrets live in 1Password (vault `Environment Variables`), never in the repo: the two items are `studio-uto-website env local` and `studio-uto-website env production`, with fields named like the env vars. `.env.local.tpl` holds the local references; `.env.tpl` holds the production references. Both need `DATABASE_URI`, `PAYLOAD_SECRET` and `NEXT_PUBLIC_SERVER_URL`. Production also needs `MEDIA_DIR`; it is optional locally. Agents never run `op` themselves.
 
-Setting up the cloud side (Space, MongoDB databases, 1Password items, GitHub secret, Vercel project, first seed) is scripted: `./scripts/setup-infra.sh`.
+Production will run as one Node 24 process on a single VPS, managed by systemd behind Caddy. The provider is still to be chosen. There is no staging environment and no Docker locally or on the server. GitHub will deploy on push to `main`, then build on the server because `next build` pre-renders from the live database. Schema changes ship as committed migrations. Only one app instance is supported.
+
+`./scripts/setup-infra.sh` is outdated and must not be used for this setup. Server scripts, the deploy workflow and production secret injection will be added in the next infrastructure step.
 
 ## Backups
 
-`.github/workflows/backup_mongo_db.yml` and `backup_do_spaces.yml` run daily at 01:30 UTC. The Spaces backup covers only `studio-uto/` in the shared `maji` Space. They write to the shared backup Space under `studio-uto/mongodb/` and `studio-uto/spaces/` and keep 7 daily, 4 weekly and 12 monthly copies. Credentials come from the 1Password item `studio-uto-website backups` through the `OP_SERVICE_ACCOUNT_TOKEN` repo secret. Restore Mongo with the command at the top of the Mongo workflow.
+The next infrastructure step will add daily backups: a consistent SQLite snapshot plus a media tarball, encrypted because future bookings will hold personal data. Backups will go to the shared DigitalOcean backup Space under `studio-uto/`, with one latest copy kept on the server. These backups are planned, not yet configured.

@@ -1,6 +1,6 @@
 # Content Model
 
-Content lives in Payload CMS (`/admin`). The pages never read Payload directly: they await the getters in `src/lib/content/index.ts` and get the shapes defined in `src/lib/content/types.ts`. The mapping between the two is in `src/lib/content/payload.ts`, with tests.
+Content lives in Payload CMS (`/admin`), backed by SQLite in WAL mode. Collection and global document IDs are numeric; nested array row IDs remain strings. The pages never read Payload directly: they await the getters in `src/lib/content/index.ts` and get the shapes defined in `src/lib/content/types.ts`. The mapping between the two is in `src/lib/content/payload.ts`, with tests.
 
 | In the admin | Payload | Feeds | Getter |
 | --- | --- | --- | --- |
@@ -10,7 +10,7 @@ Content lives in Payload CMS (`/admin`). The pages never read Payload directly: 
 | Media | collection `media` | every content image, with its alt text | — |
 | Users | collection `users` | admins and editors | — |
 
-Media uploads keep the untouched source copy. Raster images become WebP at upload: a main file at most 2560 px wide and 480/768/1280/1920 px variants, without enlargement. SVG stays unchanged. The mapper returns the main file and a width-sorted `srcSet`, excluding the admin thumbnail. Files live in the shared `maji` Space under `studio-uto/media/` in production and `studio-uto/media-<postfix>/` elsewhere. The site uses CDN URLs directly, without Next image optimization.
+Media uploads keep the untouched source copy. Raster images become WebP at upload: a main file at most 2560 px wide and 480/768/1280/1920 px variants, without enlargement. SVG stays unchanged. The mapper returns the main file and a width-sorted `srcSet`, excluding the admin thumbnail. Files live in the repo-root `media/` locally, or the absolute directory set by `MEDIA_DIR` on the server. URLs stay at `/api/media/file/<filename>`; Caddy will serve that path directly from the media directory on the VPS. The site uses these URLs without Next image optimization.
 
 ## Information sections
 
@@ -33,6 +33,6 @@ Decorative imagery (the chrome intro and its hover photos, the page-transition r
 ## Changing the model
 
 1. Edit the collection or global in `src/payload/`.
-2. `pnpm generate:types`.
+2. `pnpm generate:types`, then `pnpm migrate:create <name>`. Commit the generated migration and index. Development keeps Payload's automatic schema push; production runs `pnpm migrate` before `pnpm build` on the server.
 3. Update the mapper in `src/lib/content/payload.ts` and its test, and `types.ts` if components need the new field.
 4. Add it to `scripts/seed-data.ts` if a fresh database should have it.

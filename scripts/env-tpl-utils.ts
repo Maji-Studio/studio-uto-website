@@ -6,30 +6,16 @@ export const VAULT = "Environment Variables";
 export const ITEM_PREFIX = "studio-uto-website env";
 const STDERR_PREVIEW_CHARS = 300;
 
-const MEDIA_POSTFIX_VAR = "NEXT_PUBLIC_MEDIA_POSTFIX";
-
 export const REQUIRED_LOCAL_VARS = new Set([
   "DATABASE_URI",
   "PAYLOAD_SECRET",
   "NEXT_PUBLIC_SERVER_URL",
 ]);
 
-export const REQUIRED_DEPLOYED_VARS = new Set([
-  "DATABASE_URI",
-  "PAYLOAD_SECRET",
-  "NEXT_PUBLIC_SERVER_URL",
-  "S3_BUCKET",
-  "S3_ACCESS_KEY_ID",
-  "S3_SECRET_ACCESS_KEY",
-  "S3_REGION",
-  "S3_ENDPOINT",
+export const REQUIRED_PRODUCTION_VARS = new Set([
+  ...REQUIRED_LOCAL_VARS,
+  "MEDIA_DIR",
 ]);
-
-export function requiredDeployedVars(itemSuffix: string): Set<string> {
-  return itemSuffix === "production"
-    ? REQUIRED_DEPLOYED_VARS
-    : new Set([...REQUIRED_DEPLOYED_VARS, MEDIA_POSTFIX_VAR]);
-}
 
 export function check1PasswordAuth(): void {
   const result = spawnSync("op", ["vault", "get", VAULT], {

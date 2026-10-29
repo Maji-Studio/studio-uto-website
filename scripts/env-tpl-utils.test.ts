@@ -5,62 +5,85 @@ import {
   ITEM_PREFIX,
   parseTemplate,
   REQUIRED_LOCAL_VARS,
-  requiredDeployedVars,
+  REQUIRED_PRODUCTION_VARS,
   templateOpFieldNames,
 } from "./env-tpl-utils";
 import { parseInjectedEnv } from "./parseInjectedEnv";
 
 describe("environment templates", () => {
-  it("uses the Studio Uto items and declares all deployed variables in both templates", () => {
+  it("uses only the local and production items with their app variables", () => {
     expect(ITEM_PREFIX).toBe("studio-uto-website env");
-    const deployed = parseTemplate();
-    expect(deployed).toHaveLength(10);
-    expect(templateOpFieldNames(".env.local.tpl")).toEqual(
-      templateOpFieldNames(),
+    const production = parseTemplate();
+    const local = parseTemplate(".env.local.tpl");
+    expect(production.map(({ name }) => name)).toEqual([
+      "DATABASE_URI",
+      "PAYLOAD_SECRET",
+      "NEXT_PUBLIC_SERVER_URL",
+      "MEDIA_DIR",
+    ]);
+    expect(local.map(({ name }) => name)).toEqual([
+      "DATABASE_URI",
+      "PAYLOAD_SECRET",
+      "NEXT_PUBLIC_SERVER_URL",
+    ]);
+    expect(production.every(({ name, opField }) => name === opField)).toBe(
+      true,
     );
-    expect(deployed.every(({ name, opField }) => name === opField)).toBe(true);
-    expect(readFileSync(".env.tpl", "utf8")).toContain(
-      "op://Environment Variables/studio-uto-website env staging/",
-    );
-    expect(readFileSync(".env.local.tpl", "utf8")).toContain(
-      "op://Environment Variables/studio-uto-website env local/",
-    );
+    expect(local.every(({ name, opField }) => name === opField)).toBe(true);
+    expect(templateOpFieldNames()).toEqual(REQUIRED_PRODUCTION_VARS);
+    expect(templateOpFieldNames(".env.local.tpl")).toEqual(REQUIRED_LOCAL_VARS);
+    for (const [file, item] of [
+      [".env.tpl", "production"],
+      [".env.local.tpl", "local"],
+    ]) {
+      const refs = readFileSync(file, "utf8").matchAll(
+        /op:\/\/[^/]+\/([^/]+)\//g,
+      );
+      expect([...refs].map((match) => match[1])).toEqual(
+        Array(file === ".env.tpl" ? 4 : 3).fill(`${ITEM_PREFIX} ${item}`),
+      );
+    }
   });
 
-  it("only requires the three core local variables and isolates preview media", () => {
+  it("requires the core local variables and the production media directory", () => {
     expect([...REQUIRED_LOCAL_VARS]).toEqual([
       "DATABASE_URI",
       "PAYLOAD_SECRET",
       "NEXT_PUBLIC_SERVER_URL",
     ]);
+    expect([...REQUIRED_PRODUCTION_VARS]).toEqual([
+      ...REQUIRED_LOCAL_VARS,
+      "MEDIA_DIR",
+    ]);
+    const template = readFileSync(".env.tpl", "utf8");
     expect(
-      requiredDeployedVars("production").has("NEXT_PUBLIC_MEDIA_POSTFIX"),
-    ).toBe(false);
-    expect(
-      requiredDeployedVars("staging").has("NEXT_PUBLIC_MEDIA_POSTFIX"),
-    ).toBe(true);
-    expect(requiredDeployedVars("production").has("S3_ENDPOINT")).toBe(true);
+      filterTemplateToItem(
+        template,
+        REQUIRED_LOCAL_VARS,
+        REQUIRED_PRODUCTION_VARS,
+      ).missingRequired,
+    ).toEqual(["MEDIA_DIR"]);
   });
 
   it("skips absent optional references but preserves required failures and literals", () => {
     const template =
-      '# comment\nDATABASE_URI="op://Vault/Item/DATABASE_URI"\nS3_BUCKET="op://Vault/Item/bucket"\nLOCAL=literal\n';
+      '# comment\nDATABASE_URI="op://Vault/Item/DATABASE_URI"\nMEDIA_DIR="op://Vault/Item/mediaDir"\nLOCAL=literal\n';
     const result = filterTemplateToItem(
       template,
       new Set(),
       REQUIRED_LOCAL_VARS,
     );
     expect(result.missingRequired).toEqual(["DATABASE_URI"]);
-    expect(result.skipped).toEqual(["S3_BUCKET"]);
+    expect(result.skipped).toEqual(["MEDIA_DIR"]);
     expect(result.filtered).toContain(
       'DATABASE_URI="op://Vault/Item/DATABASE_URI"',
     );
-    expect(result.filtered).toContain("# S3_BUCKET skipped");
+    expect(result.filtered).toContain("# MEDIA_DIR skipped");
     expect(result.filtered).toContain("LOCAL=literal");
     expect(
       filterTemplateToItem(
         template,
-        new Set(["DATABASE_URI", "bucket"]),
+        new Set(["DATABASE_URI", "mediaDir"]),
         REQUIRED_LOCAL_VARS,
       ).filtered,
     ).toBe(template);

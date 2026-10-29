@@ -17,10 +17,10 @@ const clean = (value?: string | null): string => value?.trim() ?? "";
 const present = <T>(value: T | undefined): value is T => value !== undefined;
 
 export function toContentImage(
-  media: Media | string | null | undefined,
+  media: Media | number | null | undefined,
   extra: Pick<ContentImage, "objectPosition"> = {},
 ): ContentImage | undefined {
-  if (!media || typeof media === "string") return undefined;
+  if (!media || typeof media === "number") return undefined;
   const file = media.url
     ? media
     : Object.values(media.variants ?? {})

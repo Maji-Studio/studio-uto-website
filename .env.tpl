@@ -1,11 +1,5 @@
-# 1Password references only. Run pnpm env:vercel to sync production and staging to Vercel.
-DATABASE_URI="op://Environment Variables/studio-uto-website env staging/DATABASE_URI"
-PAYLOAD_SECRET="op://Environment Variables/studio-uto-website env staging/PAYLOAD_SECRET"
-NEXT_PUBLIC_SERVER_URL="op://Environment Variables/studio-uto-website env staging/NEXT_PUBLIC_SERVER_URL"
-NEXT_PUBLIC_MEDIA_POSTFIX="op://Environment Variables/studio-uto-website env staging/NEXT_PUBLIC_MEDIA_POSTFIX"
-S3_BUCKET="op://Environment Variables/studio-uto-website env staging/S3_BUCKET"
-S3_ACCESS_KEY_ID="op://Environment Variables/studio-uto-website env staging/S3_ACCESS_KEY_ID"
-S3_SECRET_ACCESS_KEY="op://Environment Variables/studio-uto-website env staging/S3_SECRET_ACCESS_KEY"
-S3_REGION="op://Environment Variables/studio-uto-website env staging/S3_REGION"
-S3_ENDPOINT="op://Environment Variables/studio-uto-website env staging/S3_ENDPOINT"
-NEXT_PUBLIC_S3_PUBLIC_ENDPOINT="op://Environment Variables/studio-uto-website env staging/NEXT_PUBLIC_S3_PUBLIC_ENDPOINT"
+# Production 1Password references. Server injection is configured in the next infrastructure step.
+DATABASE_URI="op://Environment Variables/studio-uto-website env production/DATABASE_URI"
+PAYLOAD_SECRET="op://Environment Variables/studio-uto-website env production/PAYLOAD_SECRET"
+NEXT_PUBLIC_SERVER_URL="op://Environment Variables/studio-uto-website env production/NEXT_PUBLIC_SERVER_URL"
+MEDIA_DIR="op://Environment Variables/studio-uto-website env production/MEDIA_DIR"

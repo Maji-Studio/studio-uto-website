@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "docker compose up -d && cross-env NODE_OPTIONS=--no-deprecation next dev -p 3060",
+    "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev -p 3060",
     "build": "cross-env NODE_OPTIONS=\"--no-deprecation --max-old-space-size=8000\" next build",
     "start": "cross-env NODE_OPTIONS=--no-deprecation next start",
     "lint": "cross-env NODE_OPTIONS=--no-deprecation eslint .",
@@ -13,20 +13,17 @@
     "payload": "cross-env NODE_OPTIONS=--no-deprecation payload",
     "generate:importmap": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap",
     "generate:types": "cross-env NODE_OPTIONS=--no-deprecation payload generate:types",
-    "docker:up": "docker compose up -d",
     "optimize:static-images": "tsx scripts/optimize-static-images.ts",
     "env:local": "tsx scripts/env-local-inject.ts",
     "env:check": "tsx scripts/check-env-drift.ts",
-    "env:vercel": "sh -c 'pnpm env:prod \"$@\" && pnpm env:preview \"$@\"' --",
-    "env:prod": "tsx scripts/sync-env-to-vercel.ts --1p-env=prod --vercel-env=production",
-    "env:preview": "tsx scripts/sync-env-to-vercel.ts --1p-env=staging --vercel-env=preview",
-    "seed": "cross-env NODE_OPTIONS=--no-deprecation payload run scripts/seed.ts"
+    "seed": "cross-env NODE_OPTIONS=--no-deprecation payload run scripts/seed.ts",
+    "migrate": "cross-env NODE_OPTIONS=--no-deprecation payload migrate",
+    "migrate:create": "cross-env NODE_OPTIONS=--no-deprecation payload migrate:create"
   },
   "dependencies": {
-    "@payloadcms/db-mongodb": "4.0.0-beta.5",
+    "@payloadcms/db-sqlite": "4.0.0-beta.5",
     "@payloadcms/next": "4.0.0-beta.5",
     "@payloadcms/richtext-lexical": "4.0.0-beta.5",
-    "@payloadcms/storage-s3": "4.0.0-beta.5",
     "@payloadcms/transformer-sharp": "4.0.0-beta.5",
     "@payloadcms/ui": "4.0.0-beta.5",
     "cross-env": "10.1.0",

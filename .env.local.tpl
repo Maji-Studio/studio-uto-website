@@ -1,11 +1,6 @@
-# 1Password references only. Run pnpm env:local; only DATABASE_URI, PAYLOAD_SECRET and NEXT_PUBLIC_SERVER_URL are required.
+# Run pnpm env:local to inject these 1Password references.
 DATABASE_URI="op://Environment Variables/studio-uto-website env local/DATABASE_URI"
 PAYLOAD_SECRET="op://Environment Variables/studio-uto-website env local/PAYLOAD_SECRET"
 NEXT_PUBLIC_SERVER_URL="op://Environment Variables/studio-uto-website env local/NEXT_PUBLIC_SERVER_URL"
-NEXT_PUBLIC_MEDIA_POSTFIX="op://Environment Variables/studio-uto-website env local/NEXT_PUBLIC_MEDIA_POSTFIX"
-S3_BUCKET="op://Environment Variables/studio-uto-website env local/S3_BUCKET"
-S3_ACCESS_KEY_ID="op://Environment Variables/studio-uto-website env local/S3_ACCESS_KEY_ID"
-S3_SECRET_ACCESS_KEY="op://Environment Variables/studio-uto-website env local/S3_SECRET_ACCESS_KEY"
-S3_REGION="op://Environment Variables/studio-uto-website env local/S3_REGION"
-S3_ENDPOINT="op://Environment Variables/studio-uto-website env local/S3_ENDPOINT"
-NEXT_PUBLIC_S3_PUBLIC_ENDPOINT="op://Environment Variables/studio-uto-website env local/NEXT_PUBLIC_S3_PUBLIC_ENDPOINT"
+# Optional absolute upload directory; defaults to the repo-root media/.
+# MEDIA_DIR=/srv/studio-uto/shared/media

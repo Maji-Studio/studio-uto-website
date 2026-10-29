@@ -8,8 +8,11 @@ next-env.d.ts
 *.tsbuildinfo
 coverage/
 
-# Local Payload uploads (production media lives in DigitalOcean Spaces)
+# Local Payload uploads (production uses MEDIA_DIR on the server)
 /media/
+
+# Local SQLite database, including WAL and shared-memory files
+/data/
 
 # Generated imagery (image-gen runs, mockups) — kept local, not site source
 output/

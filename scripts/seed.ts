@@ -5,7 +5,7 @@ import { getOriginalFilename } from "payload/internal";
 import type { Media } from "../src/payload-types";
 import type { SeedImage } from "./seed-types";
 import { impressions, sections, siteSettings } from "./seed-data";
-import { assertSeedDatabase } from "./seed-utils";
+import { assertSeedDatabase, matchesSeedOriginal } from "./seed-utils";
 
 assertSeedDatabase(process.env.DATABASE_URI, process.env.SEED_ALLOW_REMOTE);
 
@@ -16,9 +16,9 @@ const trusted = {
   overrideAccess: true,
   context: { disableRevalidate: true },
 } as const;
-const uploaded = new Map<string, Promise<string>>();
+const uploaded = new Map<string, Promise<Media["id"]>>();
 
-function upload(image: SeedImage): Promise<string> {
+function upload(image: SeedImage): Promise<Media["id"]> {
   const filename = path.basename(image.path);
   const cached = uploaded.get(filename);
   if (cached) return cached;
@@ -30,26 +30,38 @@ function upload(image: SeedImage): Promise<string> {
 async function upsertMedia(
   image: SeedImage,
   filename: string,
-): Promise<string> {
-  // V4 stores an untransformed main file with an -original suffix, even with versions disabled.
-  const filenames = [filename, getOriginalFilename({ filename })];
+): Promise<Media["id"]> {
+  // Existing local files can give the source copy a numeric collision suffix.
+  const originalFilename = getOriginalFilename({ filename });
+  const filenames = [filename, originalFilename];
   const existing = await payload.find({
     collection: "media",
     where: {
       or: [
         { filename: { in: filenames } },
-        { "original.filename": { in: filenames } },
+        {
+          "original.filename": {
+            contains: path.parse(originalFilename).name,
+          },
+        },
       ],
     },
-    limit: 1,
+    limit: 0,
+    pagination: false,
+    sort: "id",
     depth: 0,
     ...trusted,
   });
+  const match = existing.docs.find(
+    (media) =>
+      filenames.includes(media.filename ?? "") ||
+      matchesSeedOriginal(originalFilename, media.original?.filename),
+  );
   let media: Media;
-  if (existing.docs[0]) {
+  if (match) {
     media = await payload.update({
       collection: "media",
-      id: existing.docs[0].id,
+      id: match.id,
       data: { alt: image.alt },
       ...trusted,
     });
@@ -119,8 +131,9 @@ try {
       await payload.create({ collection: "impressionen", data, ...trusted });
     }
   }
+  const mediaCount = await payload.count({ collection: "media", ...trusted });
   payload.logger.info(
-    `Seed complete: ${uploaded.size} media files, ${impressions.length} impressions.`,
+    `Seed complete: ${uploaded.size} media files (${mediaCount.totalDocs} stored), ${impressions.length} impressions.`,
   );
 } finally {
   await payload.destroy();

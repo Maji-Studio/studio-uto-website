@@ -55,7 +55,8 @@ export const Media: CollectionConfig = {
     { name: "caption", label: "Bildlegende", type: "text" },
   ],
   upload: {
-    staticDir: path.resolve(dirname, "../../../../media"),
+    staticDir:
+      process.env.MEDIA_DIR || path.resolve(dirname, "../../../../media"),
     mimeTypes: ["image/*"],
     adminThumbnail: "thumbnail",
   },

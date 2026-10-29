@@ -7,7 +7,7 @@ import { adminsAndUser } from "./access/adminsAndUser";
 import { ensureFirstUserIsAdmin } from "./hooks/ensureFirstUserIsAdmin";
 
 const user = (role: "admin" | "editor"): User => ({
-  id: role,
+  id: role === "admin" ? 1 : 2,
   email: `${role}@example.test`,
   roles: [role],
   collection: "users",
@@ -40,7 +40,7 @@ describe("user access", () => {
       true,
     );
     expect(adminsAndUser({ req: req(user("editor")), slug: "users" })).toEqual({
-      id: { equals: "editor" },
+      id: { equals: 2 },
     });
     expect(adminsAndUser({ req: req(null), slug: "users" })).toBe(false);
     expect(authenticated({ req: req(user("editor")), slug: "media" })).toBe(

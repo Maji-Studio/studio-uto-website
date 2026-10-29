@@ -1,7 +1,7 @@
 import {
   ITEM_PREFIX,
   REQUIRED_LOCAL_VARS,
-  requiredDeployedVars,
+  REQUIRED_PRODUCTION_VARS,
   VAULT,
   fetchItemFieldNames,
   parseTemplate,
@@ -11,14 +11,9 @@ import {
 
 const CHECKS = [
   {
-    env: "staging",
-    templateFile: ".env.tpl",
-    required: requiredDeployedVars("staging"),
-  },
-  {
     env: "production",
     templateFile: ".env.tpl",
-    required: requiredDeployedVars("production"),
+    required: REQUIRED_PRODUCTION_VARS,
   },
   {
     env: "local",
@@ -93,7 +88,7 @@ function main(): void {
     console.log(
       "Add any wanted variables to the matching template as:\n" +
         `  NAME="op://${VAULT}/${ITEM_PREFIX} <env>/NAME"\n` +
-        "then run: pnpm env:vercel (.env.tpl) or pnpm env:local (.env.local.tpl)\n",
+        "then run pnpm env:local for local changes; production injection comes with server setup\n",
     );
   }
 

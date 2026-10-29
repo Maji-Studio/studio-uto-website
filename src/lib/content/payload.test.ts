@@ -13,7 +13,7 @@ import {
 } from "./payload";
 
 const media: Media = {
-  id: "photo",
+  id: 1,
   alt: "Studio",
   url: "/original.jpg",
   width: 2560,
@@ -93,6 +93,30 @@ describe("toContentImage", () => {
     });
   });
 
+  it("keeps local Payload file URLs in src and the width-sorted srcSet", () => {
+    expect(
+      toContentImage({
+        ...media,
+        url: "/api/media/file/main.webp/",
+        variants: {
+          md: { url: "/api/media/file/main-md.webp/", width: 768 },
+          sm: { url: "/api/media/file/main-sm.webp/", width: 480 },
+          thumbnail: {
+            url: "/api/media/file/main-thumbnail.webp/",
+            width: 400,
+          },
+        },
+      }),
+    ).toEqual({
+      src: "/api/media/file/main.webp",
+      srcSet:
+        "/api/media/file/main-sm.webp 480w, /api/media/file/main-md.webp 768w, /api/media/file/main.webp 2560w",
+      width: 2560,
+      height: 1707,
+      alt: "Studio",
+    });
+  });
+
   it("deduplicates widths and prefers the main file at its width", () => {
     expect(
       toContentImage({
@@ -130,7 +154,7 @@ describe("toContentImage", () => {
   });
 
   it("omits unpopulated, missing and dimensionless images", () => {
-    expect(toContentImage("photo")).toBeUndefined();
+    expect(toContentImage(1)).toBeUndefined();
     expect(toContentImage(null)).toBeUndefined();
     expect(toContentImage({ ...media, width: null })).toBeUndefined();
     expect(toContentImage({ ...media, url: null })).toBeUndefined();
@@ -140,7 +164,7 @@ describe("toContentImage", () => {
 describe("toStudioSections", () => {
   it("splits paragraphs and lines, trims whitespace and drops empty entries", () => {
     const global: Information = {
-      id: "info",
+      id: 1,
       sections: [
         {
           anchor: "studio",
@@ -176,7 +200,7 @@ describe("toStudioSections", () => {
   it("omits empty blocks and optional keys, including unpopulated galleries", () => {
     expect(
       toStudioSections({
-        id: "info",
+        id: 1,
         sections: [
           {
             anchor: "daten",
@@ -193,9 +217,9 @@ describe("toStudioSections", () => {
               {
                 label: "Empty heading",
                 galleryName: "Gallery",
-                galleryImages: ["missing"],
+                galleryImages: [999],
               },
-              { text: "Content", figure: "missing", note: "" },
+              { text: "Content", figure: 999, note: "" },
             ],
           },
         ],
@@ -203,12 +227,12 @@ describe("toStudioSections", () => {
     ).toEqual([
       { id: "daten", title: "Daten", blocks: [{ text: ["Content"] }] },
     ]);
-    expect(toStudioSections({ id: "info" })).toEqual([]);
+    expect(toStudioSections({ id: 1 })).toEqual([]);
   });
 
   it("maps galleries, figures, pairs and links without CMS metadata", () => {
     const global: Information = {
-      id: "info",
+      id: 1,
       sections: [
         {
           anchor: "bilder",
@@ -217,7 +241,7 @@ describe("toStudioSections", () => {
             {
               figure: media,
               galleryName: " Studio ",
-              galleryImages: ["missing", media],
+              galleryImages: [999, media],
               pairs: [{ term: "Tag", detail: "850", id: "pair" }],
               links: [
                 {
@@ -247,17 +271,14 @@ describe("toStudioSections", () => {
 it("maps impression order, client names and focal positions", () => {
   const docs: Impressionen[] = [
     {
-      id: "one",
+      id: 1,
       name: "Nicolas",
       client: " Manor ",
-      images: [
-        { image: "missing" },
-        { image: media, objectPosition: "50% 15%" },
-      ],
+      images: [{ image: 999 }, { image: media, objectPosition: "50% 15%" }],
       createdAt: "",
       updatedAt: "",
     },
-    { id: "two", name: "Matthias", client: " ", createdAt: "", updatedAt: "" },
+    { id: 2, name: "Matthias", client: " ", createdAt: "", updatedAt: "" },
   ];
   expect(toImpressions(docs)).toEqual([
     {
@@ -271,7 +292,7 @@ it("maps impression order, client names and focal positions", () => {
 
 it("maps settings without leaking document and nested row IDs", () => {
   const global: SiteSetting = {
-    id: "site",
+    id: 1,
     name: "Studio Uto",
     description: "Studio",
     contact: {
