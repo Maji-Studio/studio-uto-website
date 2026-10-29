@@ -1,0 +1,111 @@
+/* ---- base = static fallback: chip + gapless grid, no reel ---- */
+.outro {
+  margin: clamp(56px, 10vh, 120px) calc(-1 * var(--page-pad)) 0;
+  color: var(--color-ink);
+}
+
+.outro-band {
+  display: none;
+}
+
+.outro-page {
+  background: var(--color-paper);
+}
+
+.outro-link {
+  margin: 0 0 4px var(--page-pad);
+}
+
+.outro-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.outro-grid li {
+  min-width: 0;
+  margin: 0;
+}
+
+.outro-grid img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+}
+
+@media (min-width: 720px) {
+  .outro-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* ---- live: the band scrolls in and pins, then the page rises over it ---- */
+.outro.is-live .outro-track {
+  height: 250vh;
+  height: 250svh;
+}
+
+.outro.is-live .outro-stage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+}
+
+.outro.is-live .outro-band,
+.outro.is-live .outro-page {
+  position: absolute;
+  inset: 0;
+}
+
+.outro.is-live .outro-page {
+  visibility: hidden;
+  will-change: clip-path;
+}
+
+.outro.is-live .outro-band {
+  display: block;
+  background: var(--color-ink);
+}
+
+.outro.is-live .outro-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: grayscale(1) contrast(1.08) brightness(0.85);
+}
+
+.outro.is-live .outro-page {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: var(--page-pad);
+}
+
+.outro.is-live .outro-link {
+  flex: none;
+  align-self: flex-start;
+}
+
+/* The grid fills what's left of the screen, cells cropped to fit. */
+.outro.is-live .outro-grid {
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+}
+
+.outro.is-live .outro-grid li {
+  min-height: 0;
+}
+
+.outro.is-live .outro-grid img {
+  height: 100%;
+  aspect-ratio: auto;
+}

@@ -1,0 +1,11 @@
+.sketch {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding: clamp(6px, 1vh, 12px) var(--page-pad) var(--page-pad);
+}
+
+/* On the homepage the chrome intro carried the gap above the prices. */
+.sketch__body {
+  margin-top: clamp(48px, 10vh, 120px);
+}

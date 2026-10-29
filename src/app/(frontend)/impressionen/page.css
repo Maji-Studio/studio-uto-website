@@ -1,0 +1,35 @@
+.impressionen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding: clamp(6px, 1vh, 12px) var(--page-pad) var(--page-pad);
+}
+
+.impressionen__entities {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(40px, 8vh, 96px);
+  margin-top: clamp(28px, 6vh, 64px);
+}
+
+/* Closing statement + contact, set large like a manifesto. */
+.collab {
+  margin-top: clamp(48px, 10vh, 120px);
+}
+
+.collab__text,
+.collab__email {
+  margin: 0;
+  font-size: clamp(1.5rem, 3.4vw, 2.4rem);
+  font-weight: 400;
+  line-height: 1.16;
+  letter-spacing: -0.01em;
+}
+
+.collab__email {
+  margin-top: 1.1em;
+}
+
+.collab__email a:hover {
+  text-decoration: underline;
+}

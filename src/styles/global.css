@@ -17,19 +17,19 @@
 }
 
 /* Page transition — the chip hover's bottom-up fill at page scale, carrying
-   the studio reel (runtime: PageTransition.astro, element: TransitionReel.astro):
+   the studio reel (runtime: PageTransition.tsx, element: TransitionReel.tsx):
 
      0–320ms    reel panel rises over the old page
      320–480ms  reel holds
      480–800ms  new page rises over the reel
 
-   The wordmark (Logo.astro) and the menu keep their own transition groups, so
+   The wordmark (Logo.tsx) and the menu keep their own transition groups, so
    they stay anchored on top. Each shows its old snapshot as the normal base and
    an inverted copy of its new snapshot clipped to the reel's visible band, so
    they flip black → white exactly where the reel passes behind them — like the
    chip label as its fill passes.
 
-   Everything is keyed on html.vt-page, which PageTransition.astro sets only
+   Everything is keyed on html.vt-page, which PageTransition.tsx sets only
    for cross-page navigations — same-document transitions (the Impressionen
    lightbox) keep their own choreography. */
 html.vt-page .site-header {
@@ -331,7 +331,7 @@ a.chip--active:not([href="#"]):hover {
 }
 
 /* Set on the outgoing page right before its transition snapshot (see
-   PageTransition.astro): drop the hover fill so the clicked chip is captured
+   PageTransition.tsx): drop the hover fill so the clicked chip is captured
    in its plain active state, matching the incoming page's menu. */
 html.vt-swapping a.chip:not([href="#"])::after {
   transition: none;
