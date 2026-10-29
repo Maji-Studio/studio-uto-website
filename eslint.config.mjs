@@ -8,6 +8,7 @@ export default [
     ignores: [
       ".next/",
       "output/",
+      ".claude/",
       "src/payload-types.ts",
       "src/app/(payload)/admin/importMap.js",
     ],

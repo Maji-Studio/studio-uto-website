@@ -81,6 +81,7 @@ export interface Config {
   collections: {
     users: User;
     media: Media;
+    impressionen: Impressionen;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -91,6 +92,7 @@ export interface Config {
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    impressionen: ImpressionenSelect<false> | ImpressionenSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -101,8 +103,14 @@ export interface Config {
     defaultIDType: string;
   };
   fallbackLocale: null;
-  globals: {};
-  globalsSelect: {};
+  globals: {
+    'site-settings': SiteSetting;
+    information: Information;
+  };
+  globalsSelect: {
+    'site-settings': SiteSettingsSelect<false> | SiteSettingsSelect<true>;
+    information: InformationSelect<false> | InformationSelect<true>;
+  };
   locale: null;
   widgets: {
     welcome: WelcomeWidget;
@@ -141,6 +149,8 @@ export interface UserAuthOperations {
  */
 export interface User {
   id: string;
+  name?: string | null;
+  roles?: ('admin' | 'editor')[] | null;
   createdBy?: {
     relationTo: 'users';
     value: string | User;
@@ -176,6 +186,9 @@ export interface User {
 export interface Media {
   id: string;
   alt: string;
+  caption?: string | null;
+  prefix?: string | null;
+  _objectKey?: string | null;
   createdBy?: {
     relationTo: 'users';
     value: string | User;
@@ -205,6 +218,98 @@ export interface Media {
   };
   focalX?: number | null;
   focalY?: number | null;
+  variants?: {
+    thumbnail?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+      prefix?: string | null;
+      _objectKey?: string | null;
+    };
+    sm?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+      prefix?: string | null;
+      _objectKey?: string | null;
+    };
+    md?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+      prefix?: string | null;
+      _objectKey?: string | null;
+    };
+    lg?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+      prefix?: string | null;
+      _objectKey?: string | null;
+    };
+    xl?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+      prefix?: string | null;
+      _objectKey?: string | null;
+    };
+    '2xl'?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+      prefix?: string | null;
+      _objectKey?: string | null;
+    };
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "impressionen".
+ */
+export interface Impressionen {
+  id: string;
+  _order?: string | null;
+  name: string;
+  client?: string | null;
+  images?:
+    | {
+        image: string | Media;
+        /**
+         * CSS object-position, e.g. 50% 15%
+         */
+        objectPosition?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  createdBy?: {
+    relationTo: 'users';
+    value: string | User;
+  } | null;
+  updatedBy?: {
+    relationTo: 'users';
+    value: string | User;
+  } | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -237,6 +342,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: string | Media;
+      } | null)
+    | ({
+        relationTo: 'impressionen';
+        value: string | Impressionen;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -307,6 +416,8 @@ export interface PayloadLlmInstruction {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  name?: T;
+  roles?: T;
   createdBy?: T;
   updatedBy?: T;
   updatedAt?: T;
@@ -333,6 +444,9 @@ export interface UsersSelect<T extends boolean = true> {
  */
 export interface MediaSelect<T extends boolean = true> {
   alt?: T;
+  caption?: T;
+  prefix?: T;
+  _objectKey?: T;
   createdBy?: T;
   updatedBy?: T;
   updatedAt?: T;
@@ -358,6 +472,102 @@ export interface MediaSelect<T extends boolean = true> {
       };
   focalX?: T;
   focalY?: T;
+  variants?:
+    | T
+    | {
+        thumbnail?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+              prefix?: T;
+              _objectKey?: T;
+            };
+        sm?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+              prefix?: T;
+              _objectKey?: T;
+            };
+        md?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+              prefix?: T;
+              _objectKey?: T;
+            };
+        lg?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+              prefix?: T;
+              _objectKey?: T;
+            };
+        xl?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+              prefix?: T;
+              _objectKey?: T;
+            };
+        '2xl'?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+              prefix?: T;
+              _objectKey?: T;
+            };
+      };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "impressionen_select".
+ */
+export interface ImpressionenSelect<T extends boolean = true> {
+  _order?: T;
+  name?: T;
+  client?: T;
+  images?:
+    | T
+    | {
+        image?: T;
+        objectPosition?: T;
+        id?: T;
+      };
+  createdBy?: T;
+  updatedBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -417,6 +627,214 @@ export interface PayloadLlmInstructionsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-settings".
+ */
+export interface SiteSetting {
+  id: string;
+  name: string;
+  description: string;
+  contact: {
+    email: string;
+    instagram: string;
+    instagramHandle: string;
+  };
+  address: {
+    name: string;
+    street: string;
+    city: string;
+  };
+  primaryNav?:
+    | {
+        label: string;
+        href: string;
+        external?: boolean | null;
+        id?: string | null;
+      }[]
+    | null;
+  socials?:
+    | {
+        label: string;
+        href: string;
+        external?: boolean | null;
+        id?: string | null;
+      }[]
+    | null;
+  beteiligte?:
+    | {
+        name: string;
+        url: string;
+        id?: string | null;
+      }[]
+    | null;
+  createdBy?: {
+    relationTo: 'users';
+    value: string | User;
+  } | null;
+  updatedBy?: {
+    relationTo: 'users';
+    value: string | User;
+  } | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "information".
+ */
+export interface Information {
+  id: string;
+  sections?:
+    | {
+        anchor: string;
+        title: string;
+        navLabel?: string | null;
+        blocks?:
+          | {
+              label?: string | null;
+              /**
+               * Absätze durch eine Leerzeile trennen.
+               */
+              text?: string | null;
+              pairs?:
+                | {
+                    term: string;
+                    detail: string;
+                    id?: string | null;
+                  }[]
+                | null;
+              /**
+               * Ein Eintrag pro Zeile.
+               */
+              lines?: string | null;
+              links?:
+                | {
+                    label: string;
+                    href: string;
+                    external?: boolean | null;
+                    detail: string;
+                    id?: string | null;
+                  }[]
+                | null;
+              figure?: (string | null) | Media;
+              galleryName?: string | null;
+              galleryImages?: (string | Media)[] | null;
+              note?: string | null;
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  createdBy?: {
+    relationTo: 'users';
+    value: string | User;
+  } | null;
+  updatedBy?: {
+    relationTo: 'users';
+    value: string | User;
+  } | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-settings_select".
+ */
+export interface SiteSettingsSelect<T extends boolean = true> {
+  name?: T;
+  description?: T;
+  contact?:
+    | T
+    | {
+        email?: T;
+        instagram?: T;
+        instagramHandle?: T;
+      };
+  address?:
+    | T
+    | {
+        name?: T;
+        street?: T;
+        city?: T;
+      };
+  primaryNav?:
+    | T
+    | {
+        label?: T;
+        href?: T;
+        external?: T;
+        id?: T;
+      };
+  socials?:
+    | T
+    | {
+        label?: T;
+        href?: T;
+        external?: T;
+        id?: T;
+      };
+  beteiligte?:
+    | T
+    | {
+        name?: T;
+        url?: T;
+        id?: T;
+      };
+  createdBy?: T;
+  updatedBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "information_select".
+ */
+export interface InformationSelect<T extends boolean = true> {
+  sections?:
+    | T
+    | {
+        anchor?: T;
+        title?: T;
+        navLabel?: T;
+        blocks?:
+          | T
+          | {
+              label?: T;
+              text?: T;
+              pairs?:
+                | T
+                | {
+                    term?: T;
+                    detail?: T;
+                    id?: T;
+                  };
+              lines?: T;
+              links?:
+                | T
+                | {
+                    label?: T;
+                    href?: T;
+                    external?: T;
+                    detail?: T;
+                    id?: T;
+                  };
+              figure?: T;
+              galleryName?: T;
+              galleryImages?: T;
+              note?: T;
+              id?: T;
+            };
+        id?: T;
+      };
+  createdBy?: T;
+  updatedBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "welcome_widget".
  */
 export interface WelcomeWidget {
@@ -442,7 +860,7 @@ export interface CollectionsWidget {
 export interface CollectionQueryWidget {
   data?: {
     title?: string | null;
-    relatedCollection: 'users' | 'media';
+    relatedCollection: 'users' | 'media' | 'impressionen';
     where?:
       | {
           [k: string]: unknown;
@@ -464,7 +882,7 @@ export interface CollectionQueryWidget {
  */
 export interface ActivityWidget {
   data?: {
-    excludedCollections?: ('users' | 'media')[] | null;
+    excludedCollections?: ('users' | 'media' | 'impressionen')[] | null;
   };
   width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
 }

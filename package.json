@@ -13,7 +13,13 @@
     "payload": "cross-env NODE_OPTIONS=--no-deprecation payload",
     "generate:importmap": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap",
     "generate:types": "cross-env NODE_OPTIONS=--no-deprecation payload generate:types",
-    "docker:up": "docker compose up -d"
+    "docker:up": "docker compose up -d",
+    "env:local": "tsx scripts/env-local-inject.ts",
+    "env:check": "tsx scripts/check-env-drift.ts",
+    "env:vercel": "sh -c 'pnpm env:prod \"$@\" && pnpm env:preview \"$@\"' --",
+    "env:prod": "tsx scripts/sync-env-to-vercel.ts --1p-env=prod --vercel-env=production",
+    "env:preview": "tsx scripts/sync-env-to-vercel.ts --1p-env=staging --vercel-env=preview",
+    "seed": "cross-env NODE_OPTIONS=--no-deprecation payload run scripts/seed.ts"
   },
   "dependencies": {
     "@payloadcms/db-mongodb": "4.0.0-beta.5",
@@ -29,7 +35,7 @@
     "payload": "4.0.0-beta.5",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "sharp": "^0.34.5"
+    "sharp": "0.35.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

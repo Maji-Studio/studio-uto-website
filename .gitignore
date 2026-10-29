@@ -18,6 +18,8 @@ output/
 .env
 .env.*
 !.env.example
+!.env.tpl
+!.env.local.tpl
 
 # Editor / OS
 .DS_Store
@@ -26,3 +28,6 @@ output/
 .claude/settings.local.json
 # Contains a machine-local MCP token — never commit.
 .mcp.json
+
+# Agent worktrees
+.claude/worktrees/

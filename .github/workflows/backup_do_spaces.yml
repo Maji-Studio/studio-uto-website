@@ -1,0 +1,155 @@
+name: DigitalOcean Space Backup
+permissions: {}
+
+on:
+  schedule:
+    - cron: "30 1 * * *" # Runs daily at 1:30 AM UTC
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  backup:
+    runs-on: ubuntu-24.04
+    steps:
+      # Backup credentials live in the "studio-uto-website backups" 1Password
+      # item, not the app env items. Fails the step when a field is missing.
+      - name: Load secrets from 1Password
+        uses: 1password/load-secrets-action@581a835fb51b8e7ec56b71cf2ffddd7e68bb25e0 # v2
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          DO_BACKUP_SPACE_KEY: op://Environment Variables/studio-uto-website backups/DO_BACKUP_SPACE_KEY
+          DO_BACKUP_SPACE_NAME: op://Environment Variables/studio-uto-website backups/DO_BACKUP_SPACE_NAME
+          DO_BACKUP_SPACE_REGION: op://Environment Variables/studio-uto-website backups/DO_BACKUP_SPACE_REGION
+          DO_BACKUP_SPACE_SECRET: op://Environment Variables/studio-uto-website backups/DO_BACKUP_SPACE_SECRET
+          DO_LIVE_SPACE_KEY: op://Environment Variables/studio-uto-website backups/DO_LIVE_SPACE_KEY
+          DO_LIVE_SPACE_NAME: op://Environment Variables/studio-uto-website backups/DO_LIVE_SPACE_NAME
+          DO_LIVE_SPACE_REGION: op://Environment Variables/studio-uto-website backups/DO_LIVE_SPACE_REGION
+          DO_LIVE_SPACE_SECRET: op://Environment Variables/studio-uto-website backups/DO_LIVE_SPACE_SECRET
+
+      - name: Install s3cmd
+        run: sudo apt-get update && sudo apt-get install -y s3cmd
+
+      - name: Set timestamp
+        run: echo "TIMESTAMP=$(date +"%Y%m%d-%H%M%S")" >> $GITHUB_ENV
+
+      - name: Configure s3cmd for source Space
+        run: |
+          echo "[default]
+          access_key = ${DO_LIVE_SPACE_KEY}
+          secret_key = ${DO_LIVE_SPACE_SECRET}
+          host_base = ${DO_LIVE_SPACE_REGION}.digitaloceanspaces.com
+          host_bucket = %(bucket)s.${DO_LIVE_SPACE_REGION}.digitaloceanspaces.com" > "$RUNNER_TEMP/s3cfg"
+          chmod 600 "$RUNNER_TEMP/s3cfg"
+
+      - name: Sync from source Space to local
+        run: |
+          mkdir -p ./space-backup
+          s3cmd --config "$RUNNER_TEMP/s3cfg" sync s3://${DO_LIVE_SPACE_NAME}/ ./space-backup/
+
+      - name: Create tarball of backup
+        run: |
+          tar czf space-backup-${TIMESTAMP}.tar.gz ./space-backup
+          echo "Size of backup file:"
+          du -h space-backup-${TIMESTAMP}.tar.gz
+
+      - name: Configure s3cmd for backup Space
+        run: |
+          echo "[default]
+          access_key = ${DO_BACKUP_SPACE_KEY}
+          secret_key = ${DO_BACKUP_SPACE_SECRET}
+          host_base = ${DO_BACKUP_SPACE_REGION}.digitaloceanspaces.com
+          host_bucket = %(bucket)s.${DO_BACKUP_SPACE_REGION}.digitaloceanspaces.com" > "$RUNNER_TEMP/s3cfg"
+          chmod 600 "$RUNNER_TEMP/s3cfg"
+
+      - name: Upload backup to DigitalOcean Spaces
+        run: |
+          BACKUP_FILE="space-backup-${TIMESTAMP}.tar.gz"
+          if [ -f "$BACKUP_FILE" ]; then
+            s3cmd --config "$RUNNER_TEMP/s3cfg" put "$BACKUP_FILE" s3://${DO_BACKUP_SPACE_NAME}/studio-uto/spaces/
+            echo "Backup uploaded successfully to studio-uto/spaces/"
+          else
+            echo "Backup file not found. Current directory contents:"
+            ls -l
+            exit 1
+          fi
+
+      - name: Manage backup retention
+        run: |
+          echo "Starting backup retention management..."
+
+          TEMP_FILE=$(mktemp)
+          s3cmd --config "$RUNNER_TEMP/s3cfg" ls s3://${DO_BACKUP_SPACE_NAME}/studio-uto/spaces/ > "$TEMP_FILE.all"
+          awk '/space-backup-/' "$TEMP_FILE.all" | sort -r > "$TEMP_FILE"
+          rm "$TEMP_FILE.all"
+          CURRENT_DATE=$(date +%s)
+
+          DAILY_COUNT=0
+          WEEKLY_COUNT=0
+          MONTHLY_COUNT=0
+          LAST_MONTH=""
+
+          while read -r backup_line; do
+            FULL_PATH=$(echo "$backup_line" | awk '{print $4}')
+            FILENAME=$(basename "$FULL_PATH")
+
+            BACKUP_DATE_STR=$(echo "$FILENAME" | awk -F'-' '{print $(NF-1)}')
+            if [ -z "$BACKUP_DATE_STR" ]; then
+              echo "Skipping unrecognized file format: $FILENAME"
+              continue
+            fi
+
+            FORMATTED_DATE="${BACKUP_DATE_STR:0:4}-${BACKUP_DATE_STR:4:2}-${BACKUP_DATE_STR:6:2}"
+            BACKUP_TIMESTAMP=$(date -d "$FORMATTED_DATE" +%s 2>/dev/null || echo "")
+
+            if [ -z "$BACKUP_TIMESTAMP" ]; then
+              echo "Could not parse date: $FILENAME, skipping"
+              continue
+            fi
+
+            DAYS_OLD=$(( (CURRENT_DATE - BACKUP_TIMESTAMP) / 86400 ))
+
+            KEEP=false
+            REASON=""
+
+            if [ $DAYS_OLD -le 7 ]; then
+              KEEP=true
+              REASON="daily backup (last 7 days)"
+              DAILY_COUNT=$((DAILY_COUNT + 1))
+            elif [ $DAYS_OLD -le 35 ]; then
+              WEEKLY_CANDIDATE_DATE=$(date -d "$FORMATTED_DATE" '+%u') # Day of week (1 = Monday, 7 = Sunday)
+              if [ "$WEEKLY_CANDIDATE_DATE" -eq 7 ] && [ $WEEKLY_COUNT -lt 4 ]; then
+                KEEP=true
+                REASON="weekly backup (closest to Sunday, last 4 weeks)"
+                WEEKLY_COUNT=$((WEEKLY_COUNT + 1))
+              fi
+            elif [ $DAYS_OLD -le 365 ]; then
+              DAY_OF_MONTH=$(date -d "$FORMATTED_DATE" '+%d')
+              BACKUP_MONTH="${BACKUP_DATE_STR:0:6}"
+              if [ "$DAY_OF_MONTH" -le 3 ] && [ $MONTHLY_COUNT -lt 12 ] && [ "$BACKUP_MONTH" != "$LAST_MONTH" ]; then
+                LAST_MONTH="$BACKUP_MONTH"
+                KEEP=true
+                REASON="monthly backup (closest to the 1st, last 12 months)"
+                MONTHLY_COUNT=$((MONTHLY_COUNT + 1))
+              fi
+            fi
+
+            if [ "$KEEP" = true ]; then
+              echo "Keeping $REASON: $FILENAME ($DAYS_OLD days old)"
+            else
+              echo "Deleting backup: $FILENAME ($DAYS_OLD days old)"
+              s3cmd --config "$RUNNER_TEMP/s3cfg" del "$FULL_PATH"
+            fi
+          done < "$TEMP_FILE"
+
+          rm "$TEMP_FILE"
+          echo "Retention summary: Kept $DAILY_COUNT daily, $WEEKLY_COUNT weekly, and $MONTHLY_COUNT monthly backups"
+
+          echo "Final retention report:"
+          s3cmd --config "$RUNNER_TEMP/s3cfg" ls s3://${DO_BACKUP_SPACE_NAME}/studio-uto/spaces/
+
+      - name: Cleanup local files
+        if: always()
+        run: |
+          rm -rf ./space-backup
+          rm -f space-backup-*.tar.gz "$RUNNER_TEMP/s3cfg"
