@@ -7,7 +7,11 @@ import type { SeedImage } from "./seed-types";
 import { impressions, sections, siteSettings } from "./seed-data";
 import { assertSeedDatabase, matchesSeedOriginal } from "./seed-utils";
 
-assertSeedDatabase(process.env.DATABASE_URI, process.env.SEED_ALLOW_REMOTE);
+assertSeedDatabase(
+  process.env.DATABASE_URI,
+  process.env.SEED_ALLOW_REMOTE,
+  process.env.NODE_ENV,
+);
 
 const { default: config } = await import("../src/payload.config");
 const payload = await getPayload({ config });

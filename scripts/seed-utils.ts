@@ -1,7 +1,13 @@
 export function assertSeedDatabase(
   uri: string | undefined,
   allowRemote?: string,
+  nodeEnv?: string,
 ): void {
+  if (nodeEnv === "production" && allowRemote !== "true") {
+    throw new Error(
+      "Seed refused in production: set SEED_ALLOW_REMOTE=true to seed an empty production database.",
+    );
+  }
   if (!uri) throw new Error("DATABASE_URI is required to seed content.");
   if (allowRemote === "true") return;
   if (!uri.startsWith("file:") || !uri.slice(5).trim()) {
