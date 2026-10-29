@@ -5,9 +5,15 @@
  * without touching a component.
  */
 
-/** An image ready to render: a URL `next/image` can load, plus its intrinsic size. */
+/**
+ * An image ready to render as a plain `<img>`: absolute CDN URLs to files that
+ * were resized and converted once, on upload. Nothing is optimized per request.
+ */
 export interface ContentImage {
+  /** The largest stored file (at most 2560 px wide). */
   src: string;
+  /** `srcset` candidates (`<url> <width>w, …`), smallest first, including `src`. */
+  srcSet?: string;
   width: number;
   height: number;
   alt: string;
