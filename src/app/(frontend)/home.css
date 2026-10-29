@@ -1,0 +1,8 @@
+.home {
+  display: flex;
+  flex-direction: column;
+  /* The hero (logo + header + gallery) holds the first screen; the studio
+     fact sheet begins just past the fold. */
+  min-height: 100dvh;
+  padding: clamp(6px, 1vh, 12px) var(--page-pad) var(--page-pad);
+}

@@ -1,0 +1,144 @@
+.facts {
+  --gap: 4px;
+  --manifesto: clamp(1.5rem, 3.4vw, 2.4rem);
+  --display: clamp(2.6rem, 7vw, 6rem);
+  margin-top: clamp(36px, 8vh, 88px);
+  padding-bottom: 0;
+}
+
+.facts-nav {
+  position: sticky;
+  top: clamp(8px, 1.4vh, 12px);
+  z-index: 30;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap);
+}
+
+/* With no rule between sections, the space above each number does the
+   separating. */
+.facts-sec {
+  padding-top: clamp(88px, 16vh, 184px);
+  scroll-margin-top: 40px;
+}
+
+/* ── The section head ──────────────────────────────────────────────── */
+
+/* Same columns as .facts-block, so the title starts where the fact lines
+   do and the number hangs in the label column. */
+.facts-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+  column-gap: 24px;
+  align-items: start;
+}
+
+.facts-head__number,
+.facts-head__title {
+  margin: 0;
+  font-size: var(--display);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  /* Trim to the caps so number and title share a top edge. */
+  text-box: trim-both cap alphabetic;
+}
+
+.facts-head__number {
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── The facts ───────────────────────────────────────────────────────── */
+
+.facts-body {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(28px, 4.5vh, 48px);
+  padding-top: clamp(32px, 6vh, 64px);
+}
+
+.facts-block {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+  gap: 10px 24px;
+  align-items: start;
+}
+
+.facts-block__main {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.facts-label {
+  justify-self: start;
+  max-width: 100%;
+  margin-top: 0.3em;
+  white-space: normal;
+}
+
+.facts-lines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--manifesto);
+  line-height: 1.16;
+  letter-spacing: -0.01em;
+}
+
+.facts-lines li + li {
+  margin-top: 0.12em;
+}
+
+/* A chip at the line's size: black field, white label, left-aligned with
+   trailing space. */
+.facts-num {
+  display: inline-block;
+  min-width: 2.4em;
+  margin: 0.04em 0;
+  padding: 0.05em 0.5em 0.07em 0.2em;
+  background: var(--color-chip);
+  color: var(--color-chip-label);
+  line-height: 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.facts-plan {
+  width: min(100%, 560px);
+  height: auto;
+}
+
+.facts-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap);
+}
+
+.facts-note {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+@media (max-width: 700px) {
+  .facts-block {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .facts-block__main {
+    grid-column: 1;
+  }
+
+  /* Number and title share one line. */
+  .facts-head {
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 0.4em;
+    font-size: var(--display);
+  }
+}

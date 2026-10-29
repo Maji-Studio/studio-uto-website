@@ -1,0 +1,27 @@
+.vt-reel {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  display: none;
+  background: var(--color-ink);
+  view-transition-name: vt-reel;
+}
+
+html.vt-reel-on .vt-reel {
+  display: block;
+}
+
+/* Clean grade: muted greyscale, pulled down so the inverted (white) wordmark
+   and menu hold on top of it. */
+.vt-reel canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: grayscale(1) contrast(1.08) brightness(0.62);
+}
+
+.vt-reel__dest {
+  position: absolute;
+  left: var(--page-pad);
+  bottom: var(--page-pad);
+}

@@ -1,0 +1,195 @@
+.intro {
+  --ink: #0a0a0a;
+  margin-top: clamp(24px, 4vh, 56px);
+}
+
+.intro__stage {
+  position: relative;
+  height: clamp(620px, 100svh, 1100px);
+  margin-inline: calc(-1 * var(--page-pad));
+  overflow: clip;
+}
+
+.intro__object {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: min(96vw, 96svh, 1000px);
+  aspect-ratio: 1;
+  translate: -50% -50%;
+}
+
+.intro__canvas,
+.intro__fallback {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.intro__fallback {
+  object-fit: contain;
+  padding: 18%;
+  filter: grayscale(1) contrast(1.1);
+  mix-blend-mode: multiply;
+}
+
+/* Nothing in the chrome area fades: things appear, or transform. The canvas
+   swaps in for the still the moment WebGL is up. */
+.intro__canvas {
+  visibility: hidden;
+}
+
+.intro--gl .intro__canvas {
+  visibility: visible;
+}
+
+.intro--gl .intro__fallback {
+  display: none;
+}
+
+/* Without WebGL: where the still's metal sits, for the cursor preview. */
+.intro__hit {
+  position: absolute;
+  inset: 24% 17% 26%;
+  pointer-events: none;
+}
+
+.intro__cursor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  width: clamp(200px, 20vw, 320px);
+  background: #eeeeee;
+  visibility: hidden;
+  pointer-events: none;
+  translate: var(--cx, 0) var(--cy, 0);
+}
+
+.intro__cursor.is-on {
+  visibility: visible;
+}
+
+.intro__cursor-img {
+  display: none;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+}
+
+.intro__cursor-img.is-on {
+  display: block;
+}
+
+.intro__facts {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+}
+
+.intro__fact {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  translate: calc(var(--px, 0) * var(--z) * 14px)
+    calc(var(--py, 0) * var(--z) * 10px);
+  pointer-events: auto;
+}
+
+.intro__fact a {
+  display: block;
+  padding: 6px 10px 5px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.intro__fact a:hover {
+  background: #eeeeee;
+  color: var(--ink);
+}
+
+/* Hovered label (and its peek) sits above its neighbours. */
+.intro__fact:hover,
+.intro__fact:focus-within {
+  z-index: 1;
+}
+
+/* Hover peek: a small studio photo hung off the label's corner, opening
+   away from the nearest stage edge. Pointer devices only. */
+.intro__fact a {
+  position: relative;
+}
+
+.intro__peek {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: clamp(180px, 18vw, 280px);
+  height: auto;
+  max-width: none;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.intro__fact--left .intro__peek {
+  left: auto;
+  right: 0;
+}
+
+.intro__fact--up .intro__peek {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+
+@media (hover: hover) {
+  .intro__fact a:hover .intro__peek,
+  .intro__fact a:focus-visible .intro__peek {
+    visibility: visible;
+  }
+}
+
+/* r6's glitch: a strip of checker that bites into the label's edge. */
+.intro__fact--glitch a::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -12px;
+  width: 12px;
+  background: repeating-conic-gradient(var(--ink) 0 25%, #fff 0 50%) 0 0 / 6px
+    6px;
+}
+
+@media (max-width: 720px) {
+  .intro__stage {
+    height: max(560px, 80svh);
+  }
+
+  .intro__object {
+    width: min(118vw, 70svh);
+  }
+
+  .intro__fact {
+    left: var(--mx);
+    top: var(--my);
+  }
+
+  .intro__fact a {
+    padding: 5px 8px 4px;
+    font-size: 0.6875rem;
+  }
+}
+
+@media not ((hover: hover) and (pointer: fine)) {
+  .intro__cursor {
+    display: none;
+  }
+}

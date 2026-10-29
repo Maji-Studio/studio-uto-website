@@ -1,0 +1,22 @@
+.lb-thumb {
+  display: block;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: zoom-in;
+}
+
+.lb-thumb[hidden] {
+  display: none;
+}
+
+.lb-thumb:focus-visible {
+  outline-offset: -2px;
+}
+
+.lb-thumb__image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
