@@ -1,0 +1,22 @@
+{
+	__EMAIL_DIRECTIVE__
+}
+__DOMAIN__ {
+	__TLS_DIRECTIVE__
+	encode zstd gzip
+	# Payload Media.read is public, so serving these files directly is safe.
+	@media path /api/media/file/*
+	handle @media {
+		uri strip_prefix /api/media/file
+		uri strip_suffix /
+		root * "__ROOT__/shared/media"
+		header Cache-Control "public, max-age=86400"
+		file_server {
+			hide .*
+		}
+	}
+	handle {
+		reverse_proxy 127.0.0.1:3000
+	}
+}
+__WWW_BLOCK__
