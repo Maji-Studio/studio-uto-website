@@ -3,10 +3,13 @@ node_modules/
 .pnpm-store/
 
 # Build output & caches
-dist/
-.astro/
-.astro-parent-cache/
+.next/
+next-env.d.ts
+*.tsbuildinfo
 coverage/
+
+# Local Payload uploads (production media lives in DigitalOcean Spaces)
+/media/
 
 # Generated imagery (image-gen runs, mockups) — kept local, not site source
 output/

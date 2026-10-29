@@ -1,0 +1,9 @@
+import type { ReactNode } from "react";
+
+export default function FrontendLayout({ children }: { children: ReactNode }) {
+  return (
+    <html lang="de-CH">
+      <body>{children}</body>
+    </html>
+  );
+}
