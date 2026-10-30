@@ -30,7 +30,8 @@ export const forgotPasswordHTML = ({
   token,
   user,
 }: { token?: string; user?: { name?: unknown } } = {}): string => {
-  const link = escapeHTML(resetURL(String(token)));
+  if (!token) throw new Error("Payload passed no reset token");
+  const link = escapeHTML(resetURL(token));
   const name = typeof user?.name === "string" ? user.name.trim() : "";
   return [
     `<p>Hallo${name ? ` ${escapeHTML(name)}` : ""},</p>`,

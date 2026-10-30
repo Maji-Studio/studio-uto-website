@@ -24,6 +24,11 @@ describe("forgot password email", () => {
     expect(html).not.toContain("<b>");
   });
 
+  it("refuses to build a link without a token", () => {
+    vi.stubEnv("NEXT_PUBLIC_SERVER_URL", "http://localhost:3060");
+    expect(() => forgotPasswordHTML({})).toThrow(/reset token/);
+  });
+
   it("requires the public server URL", () => {
     vi.stubEnv("NEXT_PUBLIC_SERVER_URL", "");
     expect(() => forgotPasswordHTML({ token: "token" })).toThrow(
