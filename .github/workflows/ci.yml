@@ -27,16 +27,25 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec tsc --noEmit
       - run: pnpm lint
+      - name: Install Mailpit v1.32.0
+        run: |
+          mailpit_dir="$RUNNER_TEMP/mailpit"
+          mkdir -p "$mailpit_dir"
+          curl --fail --location --silent --show-error https://github.com/axllent/mailpit/releases/download/v1.32.0/mailpit-linux-amd64.tar.gz -o "$mailpit_dir/mailpit.tar.gz"
+          cd "$mailpit_dir"
+          echo '4b5993c978e8604c70d43927e2ad103b311bba3b1822fa0cf1d4ee4ec890a93c  mailpit.tar.gz' | sha256sum -c -
+          tar -xzf mailpit.tar.gz mailpit
+          echo "$mailpit_dir" >> "$GITHUB_PATH"
       - run: pnpm test --reporter=default --reporter=json --outputFile="$RUNNER_TEMP/vitest.json"
-      - name: Require the Linux server suites to run without skips
+      - name: Require the server and Mailpit suites to run without skips
         run: |
           pnpm exec node --input-type=module <<'NODE'
           import { readFileSync } from 'node:fs';
           const report = JSON.parse(readFileSync(`${process.env.RUNNER_TEMP}/vitest.json`, 'utf8'));
-          for (const name of ['deploy', 'backup-status']) {
-            const file = report.testResults.find(test => test.name.endsWith(`/scripts/server/${name}.test.ts`));
+          for (const name of ['scripts/server/deploy.test.ts', 'scripts/server/backup-status.test.ts', 'src/payload/email.mailpit.test.ts']) {
+            const file = report.testResults.find(test => test.name.endsWith(`/${name}`));
             if (!file?.assertionResults.length || file.assertionResults.some(test => test.status !== 'passed')) {
-              throw new Error(`${name}: server tests are missing, skipped, pending or failed`);
+              throw new Error(`${name}: tests are missing, skipped, pending or failed`);
             }
           }
           NODE

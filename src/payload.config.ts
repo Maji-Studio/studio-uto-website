@@ -13,6 +13,7 @@ import { Users } from "./payload/collections/Users";
 import { Impressionen } from "./payload/collections/Impressionen";
 import { SiteSettings } from "./payload/globals/SiteSettings";
 import { Information } from "./payload/globals/Information";
+import { createEmailAdapter } from "./payload/email";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const databaseUri = process.env.DATABASE_URI || "file:./data/payload.db";
@@ -25,6 +26,7 @@ if (databaseUri.startsWith("file:")) {
 }
 
 export default buildConfig({
+  email: createEmailAdapter(),
   admin: {
     user: Users.slug,
     importMap: { baseDir: path.resolve(dirname) },

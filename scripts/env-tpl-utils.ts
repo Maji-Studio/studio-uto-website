@@ -15,6 +15,8 @@ export const REQUIRED_LOCAL_VARS = new Set([
 export const REQUIRED_PRODUCTION_VARS = new Set([
   ...REQUIRED_LOCAL_VARS,
   "MEDIA_DIR",
+  "RESEND_API_KEY",
+  "EMAIL_FROM_ADDRESS",
 ]);
 
 export function check1PasswordAuth(): void {

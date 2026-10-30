@@ -4,3 +4,6 @@ DATABASE_URI="op://Environment Variables/studio-uto-website env production/DATAB
 PAYLOAD_SECRET="op://Environment Variables/studio-uto-website env production/PAYLOAD_SECRET"
 NEXT_PUBLIC_SERVER_URL="op://Environment Variables/studio-uto-website env production/NEXT_PUBLIC_SERVER_URL"
 MEDIA_DIR="op://Environment Variables/studio-uto-website env production/MEDIA_DIR"
+RESEND_API_KEY="op://Environment Variables/studio-uto-website env production/RESEND_API_KEY"
+EMAIL_FROM_ADDRESS="op://Environment Variables/studio-uto-website env production/EMAIL_FROM_ADDRESS"
+EMAIL_FROM_NAME="op://Environment Variables/studio-uto-website env production/EMAIL_FROM_NAME"

@@ -20,17 +20,33 @@ describe("environment templates", () => {
       "PAYLOAD_SECRET",
       "NEXT_PUBLIC_SERVER_URL",
       "MEDIA_DIR",
+      "RESEND_API_KEY",
+      "EMAIL_FROM_ADDRESS",
+      "EMAIL_FROM_NAME",
     ]);
     expect(local.map(({ name }) => name)).toEqual([
       "DATABASE_URI",
       "PAYLOAD_SECRET",
       "NEXT_PUBLIC_SERVER_URL",
+      "SMTP_HOST",
+      "SMTP_PORT",
+      "EMAIL_FROM_ADDRESS",
+      "EMAIL_FROM_NAME",
     ]);
     expect(production.every(({ name, opField }) => name === opField)).toBe(
       true,
     );
-    expect(local.every(({ name, opField }) => name === opField)).toBe(true);
-    expect(templateOpFieldNames()).toEqual(REQUIRED_PRODUCTION_VARS);
+    expect(
+      local.filter(({ opField }) => opField === null).map(({ name }) => name),
+    ).toEqual([
+      "SMTP_HOST",
+      "SMTP_PORT",
+      "EMAIL_FROM_ADDRESS",
+      "EMAIL_FROM_NAME",
+    ]);
+    expect(templateOpFieldNames()).toEqual(
+      new Set([...REQUIRED_PRODUCTION_VARS, "EMAIL_FROM_NAME"]),
+    );
     expect(templateOpFieldNames(".env.local.tpl")).toEqual(REQUIRED_LOCAL_VARS);
     for (const [file, item] of [
       [".env.tpl", "production"],
@@ -40,12 +56,12 @@ describe("environment templates", () => {
         /op:\/\/[^/]+\/([^/]+)\//g,
       );
       expect([...refs].map((match) => match[1])).toEqual(
-        Array(file === ".env.tpl" ? 4 : 3).fill(`${ITEM_PREFIX} ${item}`),
+        Array(file === ".env.tpl" ? 7 : 3).fill(`${ITEM_PREFIX} ${item}`),
       );
     }
   });
 
-  it("requires the core local variables and the production media directory", () => {
+  it("requires the core local variables and production media and email settings", () => {
     expect([...REQUIRED_LOCAL_VARS]).toEqual([
       "DATABASE_URI",
       "PAYLOAD_SECRET",
@@ -54,6 +70,8 @@ describe("environment templates", () => {
     expect([...REQUIRED_PRODUCTION_VARS]).toEqual([
       ...REQUIRED_LOCAL_VARS,
       "MEDIA_DIR",
+      "RESEND_API_KEY",
+      "EMAIL_FROM_ADDRESS",
     ]);
     const template = readFileSync(".env.tpl", "utf8");
     expect(
@@ -62,7 +80,7 @@ describe("environment templates", () => {
         REQUIRED_LOCAL_VARS,
         REQUIRED_PRODUCTION_VARS,
       ).missingRequired,
-    ).toEqual(["MEDIA_DIR"]);
+    ).toEqual(["MEDIA_DIR", "RESEND_API_KEY", "EMAIL_FROM_ADDRESS"]);
   });
 
   it("skips absent optional references but preserves required failures and literals", () => {
