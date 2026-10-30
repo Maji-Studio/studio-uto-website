@@ -2,11 +2,24 @@ import type { CollectionConfig } from "payload";
 import { adminFieldAccess, admins } from "../../access/admins";
 import { adminsAndUser } from "./access/adminsAndUser";
 import { checkRole } from "./checkRole";
+import {
+  RESET_LINK_LIFETIME_MS,
+  forgotPasswordHTML,
+  forgotPasswordSubject,
+} from "./emails/forgotPassword";
 import { ensureFirstUserIsAdmin } from "./hooks/ensureFirstUserIsAdmin";
 
 export const Users: CollectionConfig = {
   slug: "users",
-  auth: { tokenExpiration: 172800, maxLoginAttempts: 10 },
+  auth: {
+    tokenExpiration: 172800,
+    maxLoginAttempts: 10,
+    forgotPassword: {
+      expiration: RESET_LINK_LIFETIME_MS,
+      generateEmailHTML: forgotPasswordHTML,
+      generateEmailSubject: forgotPasswordSubject,
+    },
+  },
   versions: false,
   access: {
     create: admins,
