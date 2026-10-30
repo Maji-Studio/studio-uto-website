@@ -1,0 +1,41 @@
+name: Server SSH
+description: Prepare the pinned server SSH connection for this job
+inputs:
+  key:
+    description: DEPLOY_SSH_KEY private key
+    required: true
+  known-hosts:
+    description: DEPLOY_KNOWN_HOSTS pinned host keys
+    required: true
+  host:
+    description: DEPLOY_HOST server address
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Prepare server SSH
+      shell: bash
+      env:
+        INPUT_KEY: ${{ inputs.key }}
+        INPUT_KNOWN_HOSTS: ${{ inputs.known-hosts }}
+        INPUT_HOST: ${{ inputs.host }}
+      run: |
+        set -euo pipefail
+        [[ -n "$INPUT_KEY" ]] || { echo 'DEPLOY_SSH_KEY is empty' >&2; exit 1; }
+        [[ -n "$INPUT_KNOWN_HOSTS" ]] || { echo 'DEPLOY_KNOWN_HOSTS is empty' >&2; exit 1; }
+        [[ -n "$INPUT_HOST" && "$INPUT_HOST" != *$'\n'* && "$INPUT_HOST" != *$'\r'* ]] || { echo 'DEPLOY_HOST is empty or multiline' >&2; exit 1; }
+        umask 077
+        printf '%s\n' "$INPUT_KEY" > "$RUNNER_TEMP/deploy_key"
+        printf '%s\n' "$INPUT_KNOWN_HOSTS" > "$RUNNER_TEMP/known_hosts"
+        printf 'STUDIO_UTO_DEPLOY_HOST=%s\n' "$INPUT_HOST" >> "$GITHUB_ENV"
+        cat > "$RUNNER_TEMP/server-ssh" <<'BASH'
+        #!/usr/bin/env bash
+        set -euo pipefail
+        exec ssh -i "$RUNNER_TEMP/deploy_key" \
+          -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
+          -o "UserKnownHostsFile=$RUNNER_TEMP/known_hosts" \
+          -o ServerAliveInterval=30 -o ServerAliveCountMax=6 \
+          "uto@$STUDIO_UTO_DEPLOY_HOST" "$@"
+        BASH
+        chmod 700 "$RUNNER_TEMP/server-ssh"
+        printf '%s\n' "$RUNNER_TEMP" >> "$GITHUB_PATH"

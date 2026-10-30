@@ -1,0 +1,30 @@
+name: Rollback
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  rollback:
+    if: vars.DEPLOY_HOST != ''
+    runs-on: ubuntu-latest
+    # Not in the deploy group: a later deploy would cancel this run while it waits.
+    # The server's deploy lock still keeps it from overlapping a deploy (up to 30 min).
+    concurrency: { group: rollback, cancel-in-progress: false }
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/server-ssh
+        with:
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          host: ${{ vars.DEPLOY_HOST }}
+      - name: Roll back the server
+        run: server-ssh rollback < /dev/null
+      - name: Remove SSH credentials
+        if: always()
+        run: rm -f -- "$RUNNER_TEMP/deploy_key" "$RUNNER_TEMP/known_hosts" "$RUNNER_TEMP/server-ssh"

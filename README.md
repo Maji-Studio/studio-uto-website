@@ -63,6 +63,8 @@ ssh root@<host> journalctl -u studio-uto -f                      # app log
 
 A deploy installs, migrates, builds, switches `current` and restarts the app. It then checks `/` and `/api/media?limit=1`. If that check fails, it switches back to the previous release by itself. Migrations stay applied after a rollback, so they must work with the previous release too. Before each migration the deploy saves a database snapshot in `shared/backups/pre-deploy/`.
 
+GitHub Actions deploys every push to `main` once tsc, lint and the tests pass (`.github/workflows/ci.yml`). The **Rollback** workflow, started by hand in the Actions tab, runs `rollback`. Both stay off until the wizard sets the `DEPLOY_HOST` variable and the `DEPLOY_SSH_KEY` and `DEPLOY_KNOWN_HOSTS` secrets. GitHub's key can only run `deploy <sha>`, `rollback` and `backup-status` on the server.
+
 Caddy serves `/api/media/file/*` straight from `shared/media` and proxies everything else to Next on `127.0.0.1:3000`.
 
 `pnpm db:pull` copies production to `data/payload.db` and `media/` for debugging. Set `STUDIO_UTO_SSH=uto@<host>` or pass the target. The server replaces personal data before the copy leaves it, and every local user can log in with the password `uto-local`. Your previous local files go to `data/before-pull/`. A new table stops the pull until it is classified in `scripts/server/anonymise.ts`.
@@ -70,5 +72,7 @@ Caddy serves `/api/media/file/*` straight from `shared/media` and proxies everyt
 ## Backups
 
 Every night at 03:15 Swiss time, `studio-uto-backup.timer` takes a SQLite snapshot, packs it with the media and encrypts it with age. It uploads the archive to the shared DigitalOcean backup Space under `studio-uto/backups/` and keeps 7 daily, 4 weekly and 12 monthly copies. The private key needed to decrypt them is only in the 1Password item `studio-uto-website backups` (`BACKUP_AGE_IDENTITY`). The server keeps the latest unencrypted archive in `shared/backups/latest.tar.gz`, and `shared/backups/last-success` records the last good run.
+
+Every morning at 06:17 UTC the **Backup check** workflow runs `studio-uto-backup-status` on the server. It fails when `last-success` is missing or older than 26 hours, and GitHub emails whoever last edited its cron line. Run the same check with `ssh uto@<host> studio-uto-backup-status`.
 
 Run one by hand with `ssh root@<host> systemctl start studio-uto-backup.service`. To restore, copy an archive to the server and run `studio-uto-restore <file.tar.gz>` as root. An `.age` file also needs the identity file: `studio-uto-restore <file.tar.gz.age> <identity-file>`. The restore stops the app, moves the current database and media to `shared/backups/pre-restore-<timestamp>/`, puts the backup in place and starts the app again.
