@@ -251,12 +251,12 @@ upload_shared() {
   printf '  %s✓ wrote%s %s on the server\n' "$GREEN" "$RESET" "$ROOT_DIR/shared/$1"
 }
 
-TOTAL_STAGES=11
+TOTAL_STAGES=13
 
 banner "Studio Uto: production server"
 
 stage "Check tools and sign-ins"
-for tool in op gh ssh ssh-keygen ssh-keyscan age-keygen openssl git dig; do
+for tool in op gh ssh ssh-keygen ssh-keyscan age-keygen openssl git dig curl; do
   if command -v "$tool" >/dev/null 2>&1; then say "✓ $tool"; else warn "$tool is missing; install it (age-keygen: brew install age), then re-run"; exit 1; fi
 done
 op whoami >/dev/null 2>&1 || { step "Sign in to 1Password first: eval \$(op signin)"; exit 1; }
@@ -307,6 +307,84 @@ confirm "Run the setup on root@$SERVER_HOST now?" || exit 1
 DOMAIN="$DOMAIN" ACME_EMAIL="$ACME_EMAIL" scripts/server/provision.sh "root@$SERVER_HOST"
 ssh -o BatchMode=yes "uto@$SERVER_HOST" true || { warn "ssh uto@$SERVER_HOST fails; check /home/uto/.ssh/authorized_keys"; exit 1; }
 say "✓ Server set up, ssh uto@$SERVER_HOST works."
+pause
+
+stage "Email domain in Resend"
+say "Password resets, and later booking mails, go out through Resend from an address"
+say "on $DOMAIN. Resend needs three DNS records to prove the domain is yours."
+note "They sit on send.$DOMAIN and resend._domainkey.$DOMAIN, so the mailboxes on $DOMAIN keep working."
+open_url "https://resend.com/domains"
+step "Sign in to Resend, or create the studio's account (the free plan is enough)."
+step "Add Domain → $DOMAIN → Region: Ireland (eu-west-1) → Add."
+step "Add every record Resend lists at the DNS provider for $DOMAIN, exactly as shown:"
+note "    MX   send                → feedback-smtp.eu-west-1.amazonses.com (priority 10)"
+note "    TXT  send                → v=spf1 include:amazonses.com ~all"
+note "    TXT  resend._domainkey   → p=… (long key, copy it from Resend)"
+if [[ -z "$(dig +short TXT "_dmarc.$DOMAIN" @1.1.1.1)" ]]; then
+  step "$DOMAIN has no DMARC record yet. Add this one too:"
+  note "    TXT  _dmarc              → v=DMARC1; p=none;"
+fi
+pause "Saved the records? Press Enter to check"
+until [[ -n "$(dig +short MX "send.$DOMAIN" @1.1.1.1)" && \
+         "$(dig +short TXT "send.$DOMAIN" @1.1.1.1)" == *"v=spf1"* && \
+         "$(dig +short TXT "resend._domainkey.$DOMAIN" @1.1.1.1)" == *"p="* ]]; do
+  warn "The MX or TXT record on send.$DOMAIN, or the key on resend._domainkey.$DOMAIN, is not visible yet."
+  confirm "Check again? (No continues; Resend keeps checking on its own)" || break
+done
+step "Back in Resend, open $DOMAIN and press Verify DNS Records."
+note "It usually turns Verified within minutes. Mail from $DOMAIN fails until it does."
+pause "Is $DOMAIN verified? Press Enter to continue"
+
+stage "Email API key and sender"
+say "The server sends through Resend's API with a key that can only send, and only"
+say "from $DOMAIN. The key goes to the production item in 1Password."
+RESEND_API_KEY=$(op_field "$PROD_ITEM" RESEND_API_KEY)
+if [[ -n "$RESEND_API_KEY" ]] && ! confirm "\"$PROD_ITEM\" already has a Resend key. Replace it?"; then
+  note "Keeping the saved Resend key."
+else
+  open_url "https://resend.com/api-keys"
+  step "Create API Key → name: studio-uto-website production."
+  step "Permission: Sending access. Domain: $DOMAIN. Add, then copy the key (shown once)."
+  ask_secret RESEND_API_KEY "Resend API key (starts with re_):"
+  until [[ "$RESEND_API_KEY" == re_* ]]; do
+    [[ -n "$RESEND_API_KEY" ]] || { warn "No key entered; re-run when you have it."; exit 1; }
+    ask_secret RESEND_API_KEY "That is not a Resend key. Paste the key starting with re_:"
+  done
+fi
+EMAIL_FROM_ADDRESS=$(op_field "$PROD_ITEM" EMAIL_FROM_ADDRESS)
+say "Sender address. Use a mailbox someone reads: people reply to these mails."
+[[ -n "$EMAIL_FROM_ADDRESS" ]] && note "Current: $EMAIL_FROM_ADDRESS (Enter keeps it)"
+printf '  %sSender address on %s (e.g. hallo@%s):%s ' "$BOLD" "$DOMAIN" "$DOMAIN" "$RESET"
+read -r input || exit 1
+EMAIL_FROM_ADDRESS="${input:-$EMAIL_FROM_ADDRESS}"
+until [[ "$EMAIL_FROM_ADDRESS" =~ ^[A-Za-z0-9._%+-]+@${DOMAIN//./\\.}$ ]]; do
+  printf '  %sAn address ending in @%s:%s ' "$BOLD" "$DOMAIN" "$RESET"
+  read -r EMAIL_FROM_ADDRESS || exit 1
+done
+EMAIL_FROM_NAME="Studio Uto"
+op_upsert "$PROD_ITEM" \
+  "RESEND_API_KEY=$RESEND_API_KEY" \
+  "EMAIL_FROM_ADDRESS=$EMAIL_FROM_ADDRESS" \
+  "EMAIL_FROM_NAME=$EMAIL_FROM_NAME"
+if confirm "Send a test mail through Resend now?"; then
+  printf '  %sSend it to:%s ' "$BOLD" "$RESET"
+  read -r TEST_TO || exit 1
+  until [[ "$TEST_TO" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]+$ ]]; do
+    printf '  %sA plain address, like name@example.com:%s ' "$BOLD" "$RESET"
+    read -r TEST_TO || exit 1
+  done
+  status=$(curl -sS -o /dev/null -w '%{http_code}' https://api.resend.com/emails \
+    -H @<(printf 'Authorization: Bearer %s\n' "$RESEND_API_KEY") \
+    -H 'Content-Type: application/json' \
+    --data @<(printf '{"from":"%s <%s>","to":["%s"],"subject":"Test von studio-uto-website","text":"Resend ist eingerichtet. Diese Mail kam vom Setup-Wizard."}' \
+      "$EMAIL_FROM_NAME" "$EMAIL_FROM_ADDRESS" "$TEST_TO")) || status="no answer"
+  if [[ "$status" == 200 ]]; then
+    say "✓ Resend accepted the mail. Check the inbox of $TEST_TO."
+  else
+    warn "Resend answered $status. Check that $DOMAIN is verified and the key has sending access to it."
+  fi
+fi
+unset RESEND_API_KEY
 pause
 
 stage "Production secrets"
