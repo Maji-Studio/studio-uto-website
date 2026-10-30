@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-PNPM_VERSION=11.13.0
+PNPM_VERSION=11.13.1
 MIN_NODE_VERSION=24.22.1
 ROOT=${STUDIO_UTO_ROOT:-/srv/studio-uto}
 ROOT=${ROOT%/}
