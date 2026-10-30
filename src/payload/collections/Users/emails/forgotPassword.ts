@@ -33,7 +33,7 @@ export const forgotPasswordHTML = ({
   const link = escapeHTML(resetURL(String(token)));
   const name = typeof user?.name === "string" ? user.name.trim() : "";
   return [
-    `<p>Hallo${name ? ` ${escapeHTML(name)}` : ""}</p>`,
+    `<p>Hallo${name ? ` ${escapeHTML(name)}` : ""},</p>`,
     "<p>Für dein Konto im Admin von Studio Uto wurde ein neues Passwort angefordert. Über diesen Link setzt du es. Er gilt eine Stunde.</p>",
     `<p><a href="${link}">${link}</a></p>`,
     "<p>Hast du das nicht angefordert? Dann ignoriere diese Mail. Dein Passwort bleibt, wie es ist.</p>",
