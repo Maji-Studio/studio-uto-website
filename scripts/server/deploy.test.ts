@@ -74,7 +74,11 @@ function release(name: string, current = false) {
   if (current) symlinkSync(`releases/${name}`, path.join(root, "current"));
 }
 
-function run(args = ["deploy", sha], env: Record<string, string> = {}) {
+function run(
+  args = ["deploy", sha],
+  env: Record<string, string> = {},
+  holdLock = false,
+) {
   const archive = spawnSync("tar", [
     "-cf",
     "-",
@@ -83,24 +87,30 @@ function run(args = ["deploy", sha], env: Record<string, string> = {}) {
     ".",
   ]);
   expect(archive.status).toBe(0);
-  return spawnSync(
-    "bash",
-    [path.join(repo, "scripts/server/deploy.sh"), ...args],
-    {
-      input: archive.stdout,
-      encoding: "utf8",
-      env: {
-        ...process.env,
-        PATH: `${root}/bin:${process.env.PATH}`,
-        STUDIO_UTO_ROOT: root,
-        HEALTH_TIMEOUT: "1",
-        HEALTH_INTERVAL: "0.1",
-        KEEP_RELEASES: "2",
-        ...env,
-      },
-      timeout: 10000,
+  const script = path.join(repo, "scripts/server/deploy.sh");
+  // holdLock runs deploy the way restore does: with deploy.lock held on fd 9.
+  const command = holdLock
+    ? [
+        "-c",
+        'exec 9>"$STUDIO_UTO_ROOT/deploy.lock"; flock 9; exec bash "$0" "$@"',
+        script,
+        ...args,
+      ]
+    : [script, ...args];
+  return spawnSync("bash", command, {
+    input: archive.stdout,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      PATH: `${root}/bin:${process.env.PATH}`,
+      STUDIO_UTO_ROOT: root,
+      HEALTH_TIMEOUT: "1",
+      HEALTH_INTERVAL: "0.1",
+      KEEP_RELEASES: "2",
+      ...env,
     },
-  );
+    timeout: 10000,
+  });
 }
 
 function calls() {
@@ -269,6 +279,48 @@ describe.skipIf(process.platform !== "linux")("deploy command", () => {
     );
   });
 
+  it("restores the original release when manual rollback is interrupted", () => {
+    release("20260101000000-aaaaaaaaaaaa");
+    release(previous, true);
+    const result = run(["rollback"], { FAIL_HEALTH: "interrupt" });
+    expect(result.status).not.toBe(0);
+    expect(readlinkSync(path.join(root, "current"))).toBe(
+      `releases/${previous}`,
+    );
+    expect(calls().match(/sudo .*restart/g)).toHaveLength(2);
+    expect(existsSync(path.join(root, "releases", previous))).toBe(true);
+  });
+
+  it.each(["migrate", "build"])(
+    "retains a failed %s snapshot until two newer releases exist",
+    (step) => {
+      release(previous, true);
+      writeFileSync(path.join(root, "shared/data/payload.db"), "fixture");
+      executable(
+        "date",
+        'if [[ "$*" == *+%Y%m%d%H%M%S* ]]; then printf "20260201000000\\n"; else /bin/date "$@"; fi',
+      );
+      expect(run(undefined, { FAIL_STEP: step }).status).toBe(1);
+      const snapshot = path.join(
+        root,
+        "shared/backups/pre-deploy/20260201000000-aaaaaaaaaaaa.db",
+      );
+      expect(existsSync(snapshot)).toBe(true);
+      executable(
+        "date",
+        'if [[ "$*" == *+%Y%m%d%H%M%S* ]]; then printf "20260202000000\\n"; else /bin/date "$@"; fi',
+      );
+      expect(run(["deploy", "c".repeat(40)]).status).toBe(0);
+      expect(existsSync(snapshot)).toBe(true);
+      executable(
+        "date",
+        'if [[ "$*" == *+%Y%m%d%H%M%S* ]]; then printf "20260203000000\\n"; else /bin/date "$@"; fi',
+      );
+      expect(run(["deploy", "d".repeat(40)]).status).toBe(0);
+      expect(existsSync(snapshot)).toBe(false);
+    },
+  );
+
   it("refuses rollback when no older release exists", () => {
     release(previous, true);
     expect(run(["rollback"]).status).toBe(1);
@@ -306,6 +358,23 @@ describe.skipIf(process.platform !== "linux")("deploy command", () => {
     expect(calls().indexOf("sqlite3")).toBeLessThan(
       calls().indexOf("pnpm migrate"),
     );
+  });
+
+  it("deploys under a deployment lock handed over on fd 9", () => {
+    const result = run(
+      ["deploy", sha],
+      { STUDIO_UTO_DEPLOY_LOCK_HELD: "1" },
+      true,
+    );
+    expect(result.status, result.stderr).toBe(0);
+    expect(readlinkSync(path.join(root, "current"))).toMatch(/aaaaaaaaaaaa$/);
+  });
+
+  it("refuses a handed-over lock that is not open on fd 9", () => {
+    const result = run(["deploy", sha], { STUDIO_UTO_DEPLOY_LOCK_HELD: "1" });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Expected the held deployment lock");
+    expect(calls()).not.toContain("pnpm");
   });
 });
 

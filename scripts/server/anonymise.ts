@@ -8,7 +8,6 @@ export interface AnonymiseReport {
 }
 
 const userColumns = [
-  "id",
   "email",
   "name",
   "salt",
@@ -19,6 +18,8 @@ const userColumns = [
   "lock_until",
   "login_attempts",
 ];
+
+const unchangedUserColumns = ["id", "created_at", "updated_at"];
 
 function empty(table: string): (db: DatabaseSync) => number {
   return (db) => Number(db.prepare(`DELETE FROM "${table}"`).run().changes);
@@ -108,7 +109,18 @@ export function anonymise(db: DatabaseSync): AnonymiseReport {
         .prepare('PRAGMA table_info("users")')
         .all()
         .map((row) => String(row.name));
-      const missing = userColumns.filter((column) => !columns.includes(column));
+      const unclassified = columns.filter(
+        (column) =>
+          !userColumns.includes(column) &&
+          !unchangedUserColumns.includes(column),
+      );
+      if (unclassified.length)
+        throw new Error(
+          `Unclassified users columns: ${unclassified.join(", ")}. Please classify them in scripts/server/anonymise.ts: anonymise personal data, or list the column in unchangedUserColumns.`,
+        );
+      const missing = [...userColumns, ...unchangedUserColumns].filter(
+        (column) => !columns.includes(column),
+      );
       if (missing.length)
         throw new Error(
           `Schema drift in users: missing expected columns ${missing.join(", ")}`,

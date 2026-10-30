@@ -134,6 +134,23 @@ describe("server anonymisation", () => {
     ).toBe(1);
   });
 
+  it("rejects unclassified users columns before changing rows", () => {
+    const db = fixture();
+    db.exec(
+      "ALTER TABLE users ADD COLUMN api_key TEXT; ALTER TABLE users ADD COLUMN phone TEXT",
+    );
+    expect(() => anonymise(db)).toThrow(
+      /users columns: api_key, phone.*classify.*scripts\/server\/anonymise\.ts/i,
+    );
+    expect(db.prepare("SELECT email FROM users").get()?.email).toBe(
+      originalEmail,
+    );
+    expect(
+      db.prepare("SELECT count(*) AS n FROM users_sessions").get()?.n,
+    ).toBe(1);
+    expect(db.isTransaction).toBe(false);
+  });
+
   it("rolls back every change if an anonymiser fails", () => {
     const db = fixture();
     db.exec(`CREATE TRIGGER refuse_user_update BEFORE UPDATE ON users

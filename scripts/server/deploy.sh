@@ -6,8 +6,14 @@ SCRIPT_DIR=$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")
 . "$SCRIPT_DIR/lib.sh"
 
 [[ -d "$ROOT/releases" ]] || die "Missing $ROOT/releases; run setup first"
-exec 9>"$ROOT/deploy.lock"
-flock -w 1800 9 || die 'Timed out waiting for deployment lock'
+# restore hands over its held lock on fd 9, so a queued deploy or rollback
+# cannot run between its data swap and this redeploy.
+if [[ "${STUDIO_UTO_DEPLOY_LOCK_HELD:-0}" == 1 ]]; then
+  flock -n 9 || die 'Expected the held deployment lock on fd 9'
+else
+  exec 9>"$ROOT/deploy.lock"
+  flock -w 1800 9 || die 'Timed out waiting for deployment lock'
+fi
 export LC_ALL=C
 
 valid_release() { [[ "$1" =~ ^[0-9]{14}-[0-9a-f]{12}$ ]]; }
@@ -25,7 +31,7 @@ current_target() {
 }
 
 prune() {
-  local current=$1 previous=$2 keep=${KEEP_RELEASES:-5} entry name cutoff='' count=0 snapshot
+  local current=$1 previous=$2 keep=${KEEP_RELEASES:-5} entry name cutoff='' count=0 snapshot newer base
   local -a names=()
   [[ "$keep" =~ ^[1-9][0-9]*$ ]] || die 'KEEP_RELEASES must be a positive integer'
   for entry in "$ROOT/releases/"*; do
@@ -58,7 +64,13 @@ prune() {
     name=${name%.db}
     valid_release "$name" || continue
     if [[ ! -d "$ROOT/releases/$name" && ! -d "$ROOT/releases/$name.failed" && ! -d "$ROOT/releases/$name.rolled-back" ]]; then
-      rm -f -- "$snapshot"
+      # Failed builds have no release directory. Keep their snapshot until
+      # KEEP_RELEASES newer successful releases exist.
+      newer=0
+      for entry in "${names[@]}"; do
+        if [[ "$entry" > "$name" ]]; then newer=$((newer + 1)); fi
+      done
+      if (( newer >= keep )); then rm -f -- "$snapshot"; fi
     fi
   done
 }
@@ -77,16 +89,28 @@ case "${1:-}" in
       fi
     done
     [[ -n "$candidate" ]] || die 'No older release to roll back to'
+    rollback_healthy=0
+    rollback_cleanup() {
+      local status=$?
+      trap - EXIT HUP INT TERM PIPE
+      if (( rollback_healthy == 0 )) && [[ "$(readlink "$ROOT/current")" != "$original" ]]; then
+        log "Rollback failed or interrupted; restoring $original" >&2
+        if ! switch_current "$original" || ! service_control restart; then
+          log 'Restoring the original release failed; inspect the service' >&2
+        fi
+      fi
+      exit "$status"
+    }
+    trap rollback_cleanup EXIT
+    trap 'exec >>"$ROOT/deploy-interrupted.log" 2>&1; exit 1' HUP INT TERM PIPE
     switch_current "releases/$candidate"
     if service_control restart && health_check; then
+      rollback_healthy=1
       # Retire the release we left so a later rollback never returns to it.
       mv -- "$ROOT/$original" "$ROOT/$original.rolled-back"
       log "Rolled back to $candidate; migrations remain applied; retired ${original#releases/}.rolled-back"
       exit 0
     fi
-    log "Rollback failed; restoring $original" >&2
-    switch_current "$original"
-    if ! service_control restart || ! health_check; then log 'Original release is also unhealthy' >&2; fi
     exit 1
     ;;
   deploy)

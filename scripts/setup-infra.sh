@@ -474,10 +474,24 @@ say "✓ https://$DOMAIN is live."
 pause
 
 stage "First admin user"
-open_url "https://$DOMAIN/admin"
-step "Create the first user. It becomes the admin."
-step "Then check the site: https://$DOMAIN/"
-pause "Created the user and checked the site? Press Enter to continue"
+say "First-user creation is blocked on the public site. Use a private SSH tunnel."
+ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:3100:127.0.0.1:3000 "uto@$SERVER_HOST" &
+ADMIN_TUNNEL_PID=$!
+close_admin_tunnel() {
+  kill "$ADMIN_TUNNEL_PID" 2>/dev/null || true
+  wait "$ADMIN_TUNNEL_PID" 2>/dev/null || true
+}
+trap close_admin_tunnel EXIT
+trap 'exit 1' HUP INT TERM
+sleep 1
+kill -0 "$ADMIN_TUNNEL_PID" 2>/dev/null || { warn "The SSH tunnel could not start."; exit 1; }
+open_url "http://localhost:3100/admin"
+step "Create the first user at http://localhost:3100/admin. It becomes the admin."
+pause "Created the user? Press Enter to close the tunnel"
+close_admin_tunnel
+trap - EXIT HUP INT TERM
+step "Sign in at https://$DOMAIN/admin, then check https://$DOMAIN/"
+pause
 
 stage "GitHub deploy access"
 say "GitHub Actions deploys over SSH with its own key. On the server that key can"

@@ -78,34 +78,54 @@ fi
 log 'Preparing user and persistent directories'
 getent group uto >/dev/null || groupadd uto
 if ! id -u uto >/dev/null 2>&1; then
-  useradd --create-home --shell /bin/bash --gid uto uto
+  useradd --no-create-home --shell /bin/bash --gid uto uto
 else
   [[ "$(id -u uto)" != 0 ]] || die 'uto must be a non-root account'
   usermod --shell /bin/bash --gid uto --home /home/uto uto
 fi
-install -d -o uto -g uto -m 750 /home/uto
+# Only root-owned parents may contain the directories root prepares.
+for directory in "$ROOT" /home/uto; do
+  parent=$(dirname -- "$directory")
+  [[ "$(readlink -f -- "$parent")" == "$parent" ]] || die "Symlink in parent: $parent"
+  while :; do
+    [[ "$(stat -c %u "$parent")" == 0 ]] || die "Unsafe parent: $parent"
+    [[ "$(stat -c %a "$parent")" =~ [0145][0145]$ ]] || die "Writable parent: $parent"
+    [[ "$parent" != / ]] || break
+    parent=$(dirname -- "$parent")
+  done
+  [[ ! -L "$directory" ]] || die "Symlink not allowed: $directory"
+  install -d -o uto -g uto -m 750 "$directory"
+done
+as_uto() { runuser -u uto -- "$@"; }
 caddy_group_changed=0
 if ! id -nG caddy | tr ' ' '\n' | grep -qx uto; then
   usermod -aG uto caddy
   caddy_group_changed=1
 fi
-for directory in "$ROOT" "$ROOT/releases" "$ROOT/shared" "$ROOT/shared/media"; do
-  install -d -o uto -g uto -m 750 "$directory"
+# Root reads only its own public keys; all destinations are opened as uto.
+root_keys=''
+if [[ -f /root/.ssh/authorized_keys ]]; then root_keys=$(cat /root/.ssh/authorized_keys); fi
+as_uto env ROOT="$ROOT" ROOT_KEYS="$root_keys" DEPLOY_SSH_PUBLIC_KEY="${DEPLOY_SSH_PUBLIC_KEY:-}" bash -s <<'PREPARE'
+set -euo pipefail
+log() { printf '[%s] %s\n' "$(date -u +%FT%TZ)" "$*"; }
+die() { log "$*" >&2; exit 1; }
+for directory in "$ROOT/releases" "$ROOT/shared" "$ROOT/shared/media"; do
+  install -d -m 750 "$directory"
 done
 for directory in "$ROOT/shared/data" "$ROOT/shared/backups" "$ROOT/shared/backups/pre-deploy" "$ROOT/shared/backups/tmp"; do
-  install -d -o uto -g uto -m 700 "$directory"
+  install -d -m 700 "$directory"
 done
 # Pre-create locks so the backup unit can flock with a read-only descriptor.
 for lock in "$ROOT/deploy.lock" "$ROOT/backup.lock"; do
   [[ -e "$lock" ]] || touch "$lock"
-  chown uto:uto "$lock"
   chmod 600 "$lock"
 done
 
-install -d -o uto -g uto -m 700 /home/uto/.ssh
+install -d -m 700 /home/uto/.ssh
 authorized=/home/uto/.ssh/authorized_keys
-if [[ ! -e "$authorized" && -f /root/.ssh/authorized_keys ]]; then
-  install -o uto -g uto -m 600 /root/.ssh/authorized_keys "$authorized"
+if [[ ! -e "$authorized" ]]; then
+  printf '%s\n' "$ROOT_KEYS" > "$authorized"
+  chmod 600 "$authorized"
 fi
 if [[ -n "${DEPLOY_SSH_PUBLIC_KEY:-}" ]]; then
   [[ "$DEPLOY_SSH_PUBLIC_KEY" != *$'\n'* && "$DEPLOY_SSH_PUBLIC_KEY" != *$'\r'* ]] || die 'Deploy public key must be one line'
@@ -118,11 +138,13 @@ if [[ -n "${DEPLOY_SSH_PUBLIC_KEY:-}" ]]; then
   keyfile=$(mktemp /home/uto/.ssh/.authorized-keys.XXXXXX)
   if [[ -f "$authorized" ]]; then sed '/studio-uto-deploy$/d' "$authorized" > "$keyfile"; fi
   printf '\ncommand="/usr/local/bin/studio-uto-ssh-command",restrict %s %s studio-uto-deploy\n' "$key_type" "$key_data" >> "$keyfile"
-  chown uto:uto "$keyfile"
   chmod 600 "$keyfile"
   mv -Tf "$keyfile" "$authorized"
 fi
-if [[ -e "$authorized" ]]; then chown uto:uto "$authorized"; chmod 600 "$authorized"; fi
+if [[ -e "$authorized" ]]; then chmod 600 "$authorized"; fi
+
+PREPARE
+unset root_keys
 
 log 'Installing scripts and restricted sudoers policy'
 installed=/usr/local/lib/studio-uto
@@ -169,7 +191,7 @@ for unit in studio-uto.service studio-uto-backup.service studio-uto-backup.timer
 done
 systemctl daemon-reload
 systemctl enable studio-uto.service
-if [[ -e "$ROOT/current" ]]; then systemctl restart studio-uto.service; fi
+if as_uto test -e "$ROOT/current"; then systemctl restart studio-uto.service; fi
 systemctl enable --now studio-uto-backup.timer
 
 email_directive='# ACME email not configured'
@@ -211,6 +233,6 @@ if [[ "${SKIP_FIREWALL:-0}" != 1 ]]; then
 fi
 log "Setup complete for $DOMAIN at $ROOT"
 for file in .env backup.env backup-recipients.txt; do
-  if [[ ! -s "$ROOT/shared/$file" ]]; then log "Still missing: $ROOT/shared/$file (create with the human-run wizard)"; fi
+  if ! as_uto test -s "$ROOT/shared/$file"; then log "Still missing: $ROOT/shared/$file (create with the human-run wizard)"; fi
 done
-if [[ ! -e "$ROOT/current" ]]; then log 'Still missing: first release; deploy a git archive'; fi
+if ! as_uto test -e "$ROOT/current"; then log 'Still missing: first release; deploy a git archive'; fi
