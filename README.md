@@ -1,8 +1,8 @@
 # Atelier Uto
 
-Studio Uto marketing website: Next.js 16 (App Router), React and TypeScript, with content in Payload CMS 4 (beta) at `/admin`. Styling is plain hand-written CSS (design tokens in `src/styles/global.css`, one stylesheet per component), no CSS framework. Why this stack: [ADR 0003](docs/adr/0003-payload-cms-on-nextjs.md). Hosting and storage: [ADR 0004](docs/adr/0004-vps-sqlite-local-media.md). Server operations: [ADR 0005](docs/adr/0005-server-operations.md).
+Studio Uto marketing website: Next.js 16 (App Router), React and TypeScript, with content in Payload CMS 4 (beta) at `/admin`. Styling is plain hand-written CSS (design tokens in `src/styles/global.css`, one stylesheet per component), no CSS framework. Why this stack: [ADR 0003](docs/adr/0003-payload-cms-on-nextjs.md). Hosting and storage: [ADR 0004](docs/adr/0004-vps-sqlite-local-media.md). Server operations: [ADR 0005](docs/adr/0005-server-operations.md). Email: [ADR 0006](docs/adr/0006-email-resend-mailpit.md).
 
-Requires Node 24.22.1 or newer and pnpm.
+Requires Node 24.22.1 or newer, pnpm and Mailpit (`brew install mailpit`).
 
 ## Commands
 
@@ -23,7 +23,7 @@ pnpm env:check           # reports drift between the templates and 1Password
 pnpm db:pull [uto@host]  # replaces local data/ and media/ with an anonymised production copy
 ```
 
-First run: `pnpm env:local` (or copy `.env.example` to `.env` and set `PAYLOAD_SECRET`), `pnpm dev`, create the first user at `/admin` (it becomes admin), then `pnpm seed`. Local development uses Payload's default schema push behaviour. After changing a collection or global: `pnpm generate:types`, then `pnpm migrate:create <name>`, and commit the migration with its generated index. Production runs `pnpm migrate` before `pnpm build`.
+First run: `pnpm env:local` (or copy `.env.example` to `.env` and set `PAYLOAD_SECRET`), start Mailpit with `mailpit` or `brew services start mailpit`, `pnpm dev`, create the first user at `/admin` (it becomes admin), then `pnpm seed`. Local development uses Payload's default schema push behaviour. After changing a collection or global: `pnpm generate:types`, then `pnpm migrate:create <name>`, and commit the migration with its generated index. Production runs `pnpm migrate` before `pnpm build`.
 
 ## Structure
 
@@ -42,15 +42,23 @@ Images are uploaded to the `media` collection and stored in the repo-root `media
 
 Raster images are converted to WebP once at upload: the main file is at most 2560 px wide, with 480/768/1280/1920 px variants, without enlargement. The untouched original is kept as the source copy. SVG uploads stay unchanged. The site uses the stored file URLs directly, with no Next image optimization. A separate 400×300 thumbnail is for the admin UI.
 
+## Email
+
+Payload sends all mail through the adapter in `src/payload/email.ts`, including password resets now and booking mails later (`payload.sendEmail`). Locally it goes over SMTP to Mailpit on port 1025. Nothing leaves your machine, and every mail lands in the inbox at http://localhost:8025. Production sends through Resend's HTTP API from an address on the site's domain.
+
+`RESEND_API_KEY` picks Resend, otherwise `SMTP_HOST` picks SMTP. Production refuses to start with neither. Both need `EMAIL_FROM_ADDRESS`. `EMAIL_FROM_NAME` defaults to "Studio Uto". The password reset mail is German and lives in `src/payload/collections/Users/emails/forgotPassword.ts`. Its link starts with `NEXT_PUBLIC_SERVER_URL`.
+
+The tests start their own Mailpit and skip that suite when the binary is missing. CI installs it and fails if the suite was skipped.
+
 ## Environments and secrets
 
-Secrets live in 1Password (vault `Environment Variables`), never in the repo: the two items are `studio-uto-website env local` and `studio-uto-website env production`, with fields named like the env vars. `.env.local.tpl` holds the local references; `.env.tpl` holds the production references. Both need `DATABASE_URI`, `PAYLOAD_SECRET` and `NEXT_PUBLIC_SERVER_URL`. Production also needs `MEDIA_DIR`; it is optional locally. Agents never run `op` themselves.
+Secrets live in 1Password (vault `Environment Variables`), never in the repo: the two items are `studio-uto-website env local` and `studio-uto-website env production`, with fields named like the env vars. `.env.local.tpl` holds the local references; `.env.tpl` holds the production references. Both need `DATABASE_URI`, `PAYLOAD_SECRET` and `NEXT_PUBLIC_SERVER_URL`. Production also needs `MEDIA_DIR`, `RESEND_API_KEY` and `EMAIL_FROM_ADDRESS`. Locally `MEDIA_DIR` is optional, and the Mailpit settings are plain values in `.env.local.tpl`. Agents never run `op` themselves.
 
 Production runs as one Node 24 process on a single VPS, managed by systemd behind Caddy. The provider is still to be chosen. There is no staging environment and no Docker locally or on the server. Schema changes ship as committed migrations. Only one app instance is supported.
 
 ## Server
 
-`./scripts/setup-infra.sh` sets up production from scratch and is safe to re-run. It walks through creating the VPS and DNS, runs the server setup, saves the production and backup items in 1Password, writes the server's `.env` from them, makes the first deploy and creates GitHub's deploy key. Agents never run it. It needs `op`, `gh` and `age` (`brew install age`).
+`./scripts/setup-infra.sh` sets up production from scratch and is safe to re-run. It walks through creating the VPS and DNS, runs the server setup, verifies the sending domain in Resend, saves the production and backup items in 1Password, writes the server's `.env` from them, makes the first deploy and creates GitHub's deploy key. Agents never run it. It needs `op`, `gh` and `age` (`brew install age`).
 
 The server scripts are in `scripts/server/` (decisions in [ADR 0005](docs/adr/0005-server-operations.md)). Everything lives in `/srv/studio-uto`: releases in `releases/`, the live one linked as `current`, and the database, media, `.env` and backups in `shared/`.
 
