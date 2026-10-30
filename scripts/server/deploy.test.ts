@@ -231,7 +231,9 @@ describe.skipIf(process.platform !== "linux")("deploy command", () => {
     expect(readlinkSync(path.join(root, "current"))).toBe(
       "releases/20260101000000-cccccccccccc",
     );
-    expect(existsSync(path.join(root, "releases", `${previous}.rolled-back`))).toBe(true);
+    expect(
+      existsSync(path.join(root, "releases", `${previous}.rolled-back`)),
+    ).toBe(true);
   });
 
   it("never rolls back to a release that was rolled back from before", () => {
@@ -248,7 +250,9 @@ describe.skipIf(process.platform !== "linux")("deploy command", () => {
     release(previous, true);
     const result = run(["deploy", sha], { FAIL_HEALTH: "interrupt" });
     expect(result.status).not.toBe(0);
-    expect(readlinkSync(path.join(root, "current"))).toBe(`releases/${previous}`);
+    expect(readlinkSync(path.join(root, "current"))).toBe(
+      `releases/${previous}`,
+    );
     expect(calls().match(/sudo .*restart/g)).toHaveLength(2);
     const failed = readdirSync(path.join(root, "releases")).filter((name) =>
       name.endsWith(`${sha.slice(0, 12)}.failed`),
@@ -287,7 +291,9 @@ describe.skipIf(process.platform !== "linux")("deploy command", () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("only allowed for the first deploy");
     expect(calls()).not.toContain("pnpm");
-    expect(readlinkSync(path.join(root, "current"))).toBe(`releases/${previous}`);
+    expect(readlinkSync(path.join(root, "current"))).toBe(
+      `releases/${previous}`,
+    );
   });
 
   it("takes a pre-deploy snapshot when a database exists", () => {
@@ -307,6 +313,7 @@ describe("SSH forced command", () => {
   beforeEach(() => {
     fixture();
     executable("studio-uto-deploy", 'printf "%s\\n" "$@"');
+    executable("studio-uto-backup-status", "printf 'backup status routed\\n'");
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -317,6 +324,10 @@ describe("SSH forced command", () => {
         ...process.env,
         SSH_ORIGINAL_COMMAND: command,
         STUDIO_UTO_DEPLOY_BIN: path.join(root, "bin/studio-uto-deploy"),
+        STUDIO_UTO_BACKUP_STATUS_BIN: path.join(
+          root,
+          "bin/studio-uto-backup-status",
+        ),
       },
     });
   }
@@ -327,6 +338,16 @@ describe("SSH forced command", () => {
     expect(result.stdout.trim().split("\n")).toEqual(command.split(" "));
   });
 
+  it("routes backup-status to its override binary without arguments", () => {
+    executable(
+      "studio-uto-backup-status",
+      '[[ $# == 0 ]]\nprintf "backup status routed\\n"',
+    );
+    const result = ssh("backup-status");
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toBe("backup status routed\n");
+  });
+
   it.each([
     "deploy abc; rm -rf /",
     `deploy ${sha} extra`,
@@ -334,6 +355,10 @@ describe("SSH forced command", () => {
     "sh",
     "rollback ",
     `deploy ${sha}\n`,
+    "backup-status extra",
+    "backup-status;id",
+    " backup-status",
+    "Backup-status",
   ])("rejects %j", (command) => {
     expect(ssh(command).status).toBe(64);
   });

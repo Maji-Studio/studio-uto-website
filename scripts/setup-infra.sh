@@ -403,7 +403,7 @@ pause "Created the user and checked the site? Press Enter to continue"
 
 stage "GitHub deploy access"
 say "GitHub Actions deploys over SSH with its own key. On the server that key can"
-say "only run studio-uto-deploy (deploy <sha> or rollback), nothing else."
+say "only run deploy <sha>, rollback and backup-status, nothing else."
 KEY_DIR=$(mktemp -d)
 trap 'rm -rf "$KEY_DIR"' EXIT
 if confirm "Create a new deploy key? (No keeps the current one; Yes replaces it)"; then
