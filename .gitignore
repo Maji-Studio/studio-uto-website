@@ -3,10 +3,16 @@ node_modules/
 .pnpm-store/
 
 # Build output & caches
-dist/
-.astro/
-.astro-parent-cache/
+.next/
+next-env.d.ts
+*.tsbuildinfo
 coverage/
+
+# Local Payload uploads (production uses MEDIA_DIR on the server)
+/media/
+
+# Local SQLite database, including WAL and shared-memory files
+/data/
 
 # Generated imagery (image-gen runs, mockups) — kept local, not site source
 output/
@@ -15,6 +21,8 @@ output/
 .env
 .env.*
 !.env.example
+!.env.tpl
+!.env.local.tpl
 
 # Editor / OS
 .DS_Store
@@ -23,3 +31,6 @@ output/
 .claude/settings.local.json
 # Contains a machine-local MCP token — never commit.
 .mcp.json
+
+# Agent worktrees
+.claude/worktrees/

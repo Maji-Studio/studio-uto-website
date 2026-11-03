@@ -1,0 +1,28 @@
+[Unit]
+Description=Studio Uto Next.js and Payload
+After=network.target
+
+[Service]
+Type=simple
+User=uto
+Group=uto
+WorkingDirectory=__ROOT__/current
+EnvironmentFile=__ROOT__/shared/.env
+Environment=NODE_ENV=production NODE_OPTIONS=--no-deprecation
+ExecStart=/usr/bin/node __ROOT__/current/node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000
+Restart=on-failure
+RestartSec=5
+UMask=0027
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=__ROOT__
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

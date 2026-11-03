@@ -1,0 +1,84 @@
+.tarife {
+  /* The page around it carries the gap above. */
+  margin-top: 0;
+  color: var(--color-ink);
+  scroll-margin-top: 48px;
+}
+
+.tarife-lab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  margin: 0;
+  padding: 0.42rem 0.6rem 0.42rem 0.5rem;
+  background: var(--color-chip, #111);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.tarife-lab b {
+  font-size: 0.6rem;
+  font-weight: 400;
+}
+
+.tarife-list {
+  list-style: none;
+  margin: 1.6rem 0 0;
+  padding: 0;
+}
+
+.tarife-list li {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.8rem, 2vw, 1.6rem);
+  margin: 0;
+  padding: 0.15rem 0;
+}
+
+.tarife-list li img {
+  flex: none;
+  width: clamp(2.6rem, 6vw, 5.2rem);
+  height: clamp(2.6rem, 6vw, 5.2rem);
+  aspect-ratio: 1;
+  object-fit: cover;
+  filter: grayscale(1);
+}
+
+.tarife-list li div {
+  min-width: 0;
+}
+
+.tarife-big {
+  display: block;
+  font-weight: 400;
+  text-transform: uppercase;
+  font-size: clamp(1.5rem, 6.2vw, 5.6rem);
+  line-height: 0.95;
+  letter-spacing: -0.035em;
+  overflow-wrap: anywhere;
+}
+
+.tarife-sm {
+  display: block;
+  margin-top: 0.3rem;
+  color: var(--color-muted);
+  font-size: 0.7rem;
+  line-height: 1.2;
+}
+
+.tarife-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: clamp(28px, 5vh, 56px);
+}
+
+.tarife-note {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+  line-height: 1.3;
+}

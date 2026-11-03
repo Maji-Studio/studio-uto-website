@@ -1,0 +1,81 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 11.13.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec tsc --noEmit
+      - run: pnpm lint
+      - name: Install Mailpit v1.32.0
+        run: |
+          mailpit_dir="$RUNNER_TEMP/mailpit"
+          mkdir -p "$mailpit_dir"
+          curl --fail --location --silent --show-error https://github.com/axllent/mailpit/releases/download/v1.32.0/mailpit-linux-amd64.tar.gz -o "$mailpit_dir/mailpit.tar.gz"
+          cd "$mailpit_dir"
+          echo '4b5993c978e8604c70d43927e2ad103b311bba3b1822fa0cf1d4ee4ec890a93c  mailpit.tar.gz' | sha256sum -c -
+          tar -xzf mailpit.tar.gz mailpit
+          echo "$mailpit_dir" >> "$GITHUB_PATH"
+      - run: pnpm test --reporter=default --reporter=json --outputFile="$RUNNER_TEMP/vitest.json"
+      - name: Require the server and Mailpit suites to run without skips
+        run: |
+          pnpm exec node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const report = JSON.parse(readFileSync(`${process.env.RUNNER_TEMP}/vitest.json`, 'utf8'));
+          for (const name of ['scripts/server/deploy.test.ts', 'scripts/server/backup-status.test.ts', 'src/payload/email.mailpit.test.ts']) {
+            const file = report.testResults.find(test => test.name.endsWith(`/${name}`));
+            if (!file?.assertionResults.length || file.assertionResults.some(test => test.status !== 'passed')) {
+              throw new Error(`${name}: tests are missing, skipped, pending or failed`);
+            }
+          }
+          NODE
+  deploy:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_HOST != ''
+    runs-on: ubuntu-latest
+    concurrency: { group: production, cancel-in-progress: false }
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/server-ssh
+        with:
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          host: ${{ vars.DEPLOY_HOST }}
+      - name: Deploy the commit unless main has moved on
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The concurrency group runs one deploy at a time but not in commit order.
+          # When main has a newer commit, that commit's run deploys it instead.
+          tip=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          if [[ "$tip" != "$GITHUB_SHA" ]]; then
+            echo "::notice::Skipping $GITHUB_SHA: main is now at $tip"
+            exit 0
+          fi
+          git archive "$GITHUB_SHA" | server-ssh "deploy $GITHUB_SHA"
+      - name: Remove SSH credentials
+        if: always()
+        run: rm -f -- "$RUNNER_TEMP/deploy_key" "$RUNNER_TEMP/known_hosts" "$RUNNER_TEMP/server-ssh"

@@ -11,3 +11,7 @@ Five canonical triage roles, each using its default string (`needs-triage`, `nee
 ### Domain docs
 
 Single-context — one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+## Design system
+
+`docs/design-system.md` is the running reference for the Studio Uto design system. It covers the Figma Slides library, tokens, templates and brand rules. Read it before any Figma or styling work. Update it, including its changelog, in the same session whenever you change the Figma library or the website tokens it mirrors.

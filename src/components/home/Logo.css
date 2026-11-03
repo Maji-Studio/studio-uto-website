@@ -1,0 +1,39 @@
+.logo {
+  display: flex;
+  width: max-content;
+  align-items: flex-start;
+  column-gap: 4px;
+  /*
+   * Shared element across page navigations. With cross-document view
+   * transitions enabled (see global.css), the browser pairs this wordmark on
+   * the outgoing and incoming pages and morphs it directly instead of folding
+   * it into the page-wide cross-fade — so the logo holds steady at the top
+   * while everything below it transitions. Must be unique per document; there
+   * is exactly one .logo per page.
+   */
+  view-transition-name: site-logo;
+  margin: 0;
+  padding: 0;
+  color: var(--color-ink);
+  font-family: var(--font-logo);
+  /*
+   * Height is driven by viewport HEIGHT in landscape, so it stays put when
+   * only the window WIDTH changes (the width is filled by the fit script via
+   * the variable width axis + scale). On portrait/narrow screens the width
+   * term takes over so the wordmark never gets too tall.
+   */
+  font-size: clamp(40px, min(19vh, 17vw), 150px);
+  font-weight: 900;
+  font-variation-settings:
+    "wght" 100,
+    "wdth" 100,
+    "CONT" 0;
+  line-height: 0.8;
+  letter-spacing: 0;
+  user-select: none;
+}
+
+.logo span {
+  display: block;
+  transform-origin: left center;
+}

@@ -1,0 +1,158 @@
+#today,
+.logo > span:nth-child(3) {
+  cursor: pointer;
+}
+
+.o-clock {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  overflow: hidden;
+  cursor: zoom-out;
+}
+
+.o-clock[hidden] {
+  display: none;
+}
+
+/* Once the O fills the screen, a solid backing hides any anti-aliased seam
+   between the glyph's outer edge and the viewport. */
+.o-clock::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--color-ink);
+  opacity: 0;
+}
+
+.o-clock[data-state="open"]::before {
+  opacity: 1;
+}
+
+.o-clock__window {
+  position: absolute;
+  background: var(--color-paper);
+}
+
+.o-clock__o {
+  position: absolute;
+  display: block;
+  margin: 0;
+  color: var(--color-ink);
+  font-family: var(--font-logo);
+  font-weight: 900;
+  line-height: 0.8;
+  white-space: nowrap;
+  transform-origin: left top;
+  user-select: none;
+}
+
+/* Sized to the counter by the script; the time scales with it. */
+.o-clock__face {
+  position: absolute;
+  overflow: hidden;
+  container-type: size;
+}
+
+.o-clock__layer {
+  position: absolute;
+  inset: 0;
+}
+
+.o-clock__layer--paper {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+.o-clock__layer--ink {
+  background: var(--color-ink);
+  color: var(--color-paper);
+  clip-path: inset(100% 0 0 0);
+  transition: clip-path 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* "12:18" in tabular Helvetica is ~2.5 em wide and ~0.72 em tall: fill 86% of
+   the counter's width, capped at 60% of its height. */
+.o-clock__time {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: min(34.4cqw, 83.7cqh);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+/* One cell per character. It clips only vertically — that's where the roll
+   happens — so round glyphs can overhang their tight advance sideways. */
+.o-clock__time .o-clock__slot {
+  position: relative;
+  display: inline-block;
+  overflow-x: visible;
+  overflow-y: clip;
+  vertical-align: top;
+}
+
+.o-clock__time .o-clock__slot > span {
+  display: block;
+}
+
+.o-clock__time .o-clock__slot > .is-leaving {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.o-clock__scale i,
+.o-clock__scale b {
+  position: absolute;
+  right: 0;
+  translate: 0 -50%;
+}
+
+.o-clock__scale i {
+  height: 1px;
+  background: currentColor;
+}
+
+.o-clock__scale i.major {
+  height: 3px;
+}
+
+/* Labels are the nav chip, butted against their tick. Under the level they
+   invert, like the active chip. */
+.o-clock__scale b {
+  right: 44px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.o-clock__layer--ink .o-clock__scale b {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+/* Inverted chip, set in the O's top stroke. */
+.o-clock__close {
+  position: absolute;
+  top: max(6px, calc((var(--cap) - 21px) / 2));
+  right: max(12px, var(--side));
+  display: none;
+  min-height: 21px;
+  border: 0;
+  border-radius: 0;
+  background: var(--color-paper);
+  padding: 3px 11px;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.o-clock[data-state="open"] .o-clock__close {
+  display: block;
+}

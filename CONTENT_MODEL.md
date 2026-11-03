@@ -1,112 +1,38 @@
 # Content Model
 
-Pages live in `src/content/pages/<page>/index.mdx`.
+Content lives in Payload CMS (`/admin`), backed by SQLite in WAL mode. Collection and global document IDs are numeric; nested array row IDs remain strings. The pages never read Payload directly: they await the getters in `src/lib/content/index.ts` and get the shapes defined in `src/lib/content/types.ts`. The mapping between the two is in `src/lib/content/payload.ts`, with tests.
 
-Example detail entries live in `src/content/examples/<slug>/index.mdx`.
+| In the admin | Payload | Feeds | Getter |
+| --- | --- | --- | --- |
+| Website | global `site-settings` | name, description, contact, address, header navigation, Beteiligte (Kontakt) | `getSiteSettings()` |
+| Information | global `information` | every section on `/information/`; the homepage intro reads its facts from it | `getInformationSections()`, `getStudioSections()`, `getStudioPhotos()` |
+| Impressionen | collection `impressionen` (drag to reorder) | the rows on `/impressionen/` | `getImpressionen()` |
+| Media | collection `media` | every content image, with its alt text | — |
+| Users | collection `users` | admins and editors | — |
 
-Images should live beside the MDX file that references them:
+Media uploads keep the untouched source copy. Raster images become WebP at upload: a main file at most 2560 px wide and 480/768/1280/1920 px variants, without enlargement. SVG stays unchanged. The mapper returns the main file and a width-sorted `srcSet`, excluding the admin thumbnail. Files live in the repo-root `media/` locally, or the absolute directory set by `MEDIA_DIR` on the server. URLs stay at `/api/media/file/<filename>`; Caddy will serve that path directly from the media directory on the VPS. The site uses these URLs without Next image optimization.
 
-```mdx
----
-cover: ./cover.jpg
-coverAlt: Short useful alt text.
----
-```
+## Information sections
 
-## How Rendering Works
+Each section has an anchor (the `#id` on `/information/`), a title, an optional short nav label and blocks. A block can combine:
 
-Frontmatter `sections` choose layout components. The React registry in `src/components/sections/SectionRenderer.tsx` maps each `type` to a component.
+- **Text**: paragraphs, separated by a blank line.
+- **Wertepaare**: term → value rows (dimension → size, service → price).
+- **Liste**: one entry per line.
+- **Links**: label → destination rows.
+- **Bild**: one image at column width (the floor plan).
+- **Galerie**: a name plus images; opens in the lightbox. The first gallery is also the homepage "Take a tour".
+- **Hinweis**: the muted note under the block.
 
-The MDX body is for longer editorial prose. It renders below the structured sections.
+The homepage intro finds its numbers by pattern in the `daten`, `grundriss`, `oeffnungszeiten`, `preise` and `anfahrt` sections (e.g. "Shooting-Fläche" with "L 7 m · B 7 m · H 5.7 m"). Rewording those rows can drop a label from the intro.
 
-Use sections when content needs a designed layout. Use the MDX body when the content is mostly article-like copy.
+## What stays in code
 
-## Available Sections
+Decorative imagery (the chrome intro and its hover photos, the page-transition reel, the `/sketch/` sections) and the copy that frames each page.
 
-### `hero`
+## Changing the model
 
-First-page signal with heading, optional image, and actions.
-
-```yaml
-- type: hero
-  kicker: Editorial studio
-  heading: Atelier Uto
-  body: Short opening copy.
-  image: ./hero.jpg
-  imageAlt: Describe the image.
-  actions:
-    - label: See examples
-      href: /examples/
-      variant: primary
-```
-
-### `textBlock`
-
-Editorial heading with body copy and optional columns.
-
-```yaml
-- type: textBlock
-  eyebrow: Approach
-  heading: Structured when useful.
-  body: Main paragraph.
-  columns:
-    - First supporting idea.
-    - Second supporting idea.
-```
-
-### `splitImage`
-
-Copy beside a local image.
-
-```yaml
-- type: splitImage
-  heading: Image-led section.
-  body: Supporting copy.
-  image: ./image.jpg
-  imageAlt: Describe the image.
-  reverse: true
-```
-
-### `cards`
-
-Small group of repeated content cards.
-
-```yaml
-- type: cards
-  heading: Services
-  items:
-    - title: Content model
-      body: Short explanation.
-```
-
-### `exampleIndex`
-
-Renders published entries from `src/content/examples`.
-
-```yaml
-- type: exampleIndex
-  heading: Selected examples
-  maxItems: 3
-```
-
-### `contactBlock`
-
-Contact-first layout for the contact page.
-
-```yaml
-- type: contactBlock
-  heading: Start a conversation.
-  email: hello@example.com
-  links:
-    - label: Instagram
-      href: https://instagram.com/
-```
-
-## Adding A Section Type
-
-1. Add the schema to `src/content.config.ts`.
-2. Add the TypeScript type to `src/types/sections.ts`.
-3. Add the React component and registry entry in `src/components/sections/SectionRenderer.tsx`.
-4. Add an example to this document.
-
-The build should fail if content references a section that is not valid.
+1. Edit the collection or global in `src/payload/`.
+2. `pnpm generate:types`, then `pnpm migrate:create <name>`. Commit the generated migration and index. Development keeps Payload's automatic schema push; production runs `pnpm migrate` before `pnpm build` on the server.
+3. Update the mapper in `src/lib/content/payload.ts` and its test, and `types.ts` if components need the new field.
+4. Add it to `scripts/seed-data.ts` if a fresh database should have it.

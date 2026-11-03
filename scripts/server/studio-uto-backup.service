@@ -1,0 +1,24 @@
+[Unit]
+Description=Encrypted Studio Uto database and media backup
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=uto
+Group=uto
+Environment=STUDIO_UTO_ROOT=__ROOT__
+EnvironmentFile=__ROOT__/shared/backup.env
+ExecStart=/usr/local/bin/studio-uto-backup
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+# SQLite opens the source read-write to coordinate WAL even for .backup.
+ReadWritePaths=__ROOT__/shared/backups __ROOT__/shared/data
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes

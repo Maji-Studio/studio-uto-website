@@ -2,27 +2,31 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import { informationSections } from "@/lib/information";
-import { primaryNav, socials } from "@/lib/site";
-import { studioSections } from "@/lib/studio";
+// The content a fresh database starts with (pnpm seed). Edits made later in
+// the CMS are the editors' to keep linked.
+import { sections, siteSettings } from "../scripts/seed-data";
 
-const pagesDir = fileURLToPath(new URL("../src/pages/", import.meta.url));
+const appDir = fileURLToPath(
+  new URL("../src/app/(frontend)/", import.meta.url),
+);
+
+const { primaryNav, socials } = siteSettings;
 
 // Anchor ids rendered on each page, by pathname. The full fact sheet lives on
 // /information/; the Tarife prices sit on the unlinked /sketch/ page.
 const anchors: Record<string, string[]> = {
   "/": [],
-  "/information/": informationSections.map((s) => s.id),
+  "/information/": sections.map((s) => s.anchor),
   "/sketch/": ["preise"],
 };
 
 function pageExists(pathname: string) {
-  const slug = pathname.replace(/^\/|\/$/g, "") || "index";
-  return existsSync(`${pagesDir}${slug}.astro`);
+  const slug = pathname.replace(/^\/|\/$/g, "");
+  return existsSync(`${appDir}${slug ? `${slug}/` : ""}page.tsx`);
 }
 
-const contentLinks = [...studioSections, ...informationSections].flatMap(
-  (section) => section.blocks.flatMap((block) => block.links ?? []),
+const contentLinks = sections.flatMap((section) =>
+  section.blocks.flatMap((block) => block.links ?? []),
 );
 
 const internal = [...primaryNav, ...socials, ...contentLinks]
