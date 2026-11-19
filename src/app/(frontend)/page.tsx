@@ -11,8 +11,6 @@ import {
 } from "@/lib/content";
 import { pageMetadata } from "@/lib/metadata";
 
-import "./home.css";
-
 export async function generateMetadata() {
   const site = await getSiteSettings();
   return pageMetadata({ title: site.name, description: site.description });
@@ -27,7 +25,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <main id="content" className="home">
+      <main id="content" className="page home">
         <Logo />
         <SiteHeader settings={settings} path="/" />
         <GalleryFrame photos={photos} />
@@ -42,7 +40,7 @@ export default async function HomePage() {
         <SiteFooter name={settings.name} />
       </main>
 
-      {/* Viewer for the hero's "Take a tour". */}
+      {/* Viewer for the hero's "Rundgang". */}
       <Lightbox />
     </>
   );

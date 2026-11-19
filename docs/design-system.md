@@ -45,15 +45,15 @@ Slide rows, in order:
 |---|---|---|---|
 | `ink` | #0A0A0A | `var(--color-ink)` | text, rules, dark slides |
 | `paper` | #FFFFFF | `var(--color-paper)` | white slides |
-| `ground` | #A9A9A6 | (hardcoded on /kontakt) | grey slides |
-| `ink-soft` | #2C2C2A | (hardcoded on /kontakt) | list items, form labels |
+| `ground` | #A9A9A6 | `var(--color-ground)` | grey slides, /kontakt ground |
+| `ink-soft` | #2C2C2A | `var(--color-ink-soft)` | list items, form labels |
 | `muted` | #6B6B68 | `var(--color-muted)` | section numbers, subtitles |
 | `chip` | #111111 | `var(--color-chip)` | chip and number fields |
 | `chip-label` | #FFFFFF | `var(--color-chip-label)` | text on chips |
 | `chip-active` | #8C8C89 | `var(--color-chip-active)` | active chip |
 | `paper-alt` | #EEEEEE | `var(--color-chip-fill)` | light chips |
 | `line` | #E4E4E0 | `var(--color-line)` | rare light rules |
-| `caption` | #4E5052 at 72 % | (none) | image caption pill |
+| `caption` | #4E5052 at 72 % | `var(--color-caption)` | image caption pill |
 | `field` | #2B4C8C | (none) | Uto Kobalt, used only for covers and breaks in decks |
 | `field-ink` | #0A0A0A | (none) | text on field |
 
@@ -67,6 +67,24 @@ Slide rows, in order:
 | `line-gap` | 8 | between fact lines |
 | `block-gap` | 44 | between fact blocks |
 | `label-col` | 492 | 1fr column of the 1fr : 3fr fact grid |
+
+### Website spacing and type (`src/styles/global.css`)
+
+The website sets every size from these custom properties. Don't write a font size, a colour or a top margin into a component stylesheet; add a token here first if one is missing.
+
+| Token | Value | Use |
+|---|---|---|
+| `--type-display` | clamp(2.6rem, 7vw, 6rem) | section numbers and titles (deck: Heading/1) |
+| `--type-manifesto` | clamp(1.5rem, 3.4vw, 2.4rem) | fact lines, the Beteiligte list, closing statements (deck: Heading/2) |
+| `--type-lead` | clamp(1.35rem, 2.4vw, 1.8rem) | form fields, the address |
+| `--type-title` | clamp(1.05rem, 1.6vw, 1.4rem) | Impressionen names, lightbox bar (deck: Body/L) |
+| `--type-chip` | 0.8125rem | every chip, form status |
+| `--type-small` | 0.75rem | footer, notes |
+| `--space-chip` | 4px | between chips in a row |
+| `--space-top` | clamp(28px, 6vh, 64px) | header chip row to the page's first block, and above the footer |
+| `--space-section` | clamp(48px, 10vh, 120px) | between the big blocks of a page |
+
+Every page's `<main>` carries `.page` (the padded, screen-high column) plus its own class. A chip is always the global `.chip`; the active chip keeps the resting width so the nav holds its shape from page to page.
 
 ### `UTO / Type`
 
@@ -151,7 +169,7 @@ Retired, kept only for the old decks: `Alt / Meta Bar`, `Alt / Rail`, `Alt / Row
 - **Type:** Helvetica Neue Regular for almost everything. Bold appears only in uppercase labels.
 - **Glyphs:** the set is fixed at 18 rental glyphs (Miete, Raum, Zugang). Equipment is named in text, not drawn.
 - **Images:** credit real client work to its photographer. Label generated imagery once per deck: "Bilder: generierte Konzeptstudien". Never present generated garments as products.
-- **Copy:** German, Swiss spelling ("ss", never "ß"). Keep it short and concrete. No em dashes, no puffery, no "nicht nur … sondern auch". Sentence case; uppercase comes only through the Label styles.
+- **Copy:** German on every surface, including the footer, image captions and the hero's "Rundgang" chip. Swiss spelling ("ss", never "ß"). Keep it short and concrete. No em dashes, no puffery, no "nicht nur … sondern auch". Sentence case; uppercase comes only through the Label styles.
 - **Facts:** Shooting-Fläche L 7 m · B 7 m · H 5.7 m; Ganzes Studio L 14 m · B 7 m · H 2.7 m. Rates excl. MWST: Ganzer Tag (10 h) CHF 850 · Halber Tag (4 h) CHF 550 · Zusätzliche Stunde CHF 150 · Styling-Raum CHF 100. Mo – Fr 9:00 – 18:00 Uhr.
 
 ## Working on the file with agents
@@ -175,6 +193,7 @@ Retired, kept only for the old decks: `Alt / Meta Bar`, `Alt / Rail`, `Alt / Row
 
 ## Changelog
 
+- **2026-11-09:** Website consistency pass. New CSS tokens for the type scale, spacing, `ground`, `ink-soft` and `caption`; all pages share the `.page` shell and the same gap under the header. The homepage fact labels are now the global chip. The active nav chip no longer widens. Footer, "Rundgang", "für" and the Impressionen closing statement are German. No Figma change.
 - **2026-10-29:** Facts moved from `src/lib/*.ts` into Payload CMS ([ADR 0003](adr/0003-payload-cms-on-nextjs.md)). The website tokens and components are unchanged.
 - **2026-10-01:**
   - Three decks were built in the grid style, then templates V01–V21 in the website style.

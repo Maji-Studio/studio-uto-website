@@ -181,9 +181,30 @@ html.vt-page::view-transition-new(site-header) {
   --color-chip-active-hover: #97977f;
   --color-line: #e4e4e0;
   --color-focus: #244f74;
+  /* The identity's mid-grey ground (/kontakt/) and what sits on it. */
+  --color-ground: #a9a9a6;
+  --color-ink-soft: #2c2c2a;
+  --color-rule-ground: #82827e;
+  /* Translucent pill on a photo. */
+  --color-caption: rgba(78, 80, 82, 0.72);
+  --color-caption-hover: rgba(60, 62, 64, 0.82);
+
+  /* Type scale. Everything is Helvetica Regular; only the size steps. */
+  --type-display: clamp(2.6rem, 7vw, 6rem);
+  --type-manifesto: clamp(1.5rem, 3.4vw, 2.4rem);
+  --type-lead: clamp(1.35rem, 2.4vw, 1.8rem);
+  --type-title: clamp(1.05rem, 1.6vw, 1.4rem);
+  --type-chip: 0.8125rem;
+  --type-small: 0.75rem;
 
   /* Outer breathing room. The logo bleeds nearly to the edges. */
   --page-pad: clamp(7px, 0.8vw, 11px);
+  /* Between chips in a row. */
+  --space-chip: 4px;
+  /* From the header's chip row to the page's first block. */
+  --space-top: clamp(28px, 6vh, 64px);
+  /* Between the big blocks of a page. */
+  --space-section: clamp(48px, 10vh, 120px);
 
   /* Applied to the document root. */
   /* Anchor jumps from the in-page section nav glide instead of snapping
@@ -210,6 +231,15 @@ body {
 img {
   display: block;
   max-width: 100%;
+}
+
+/* Every page's shell: the wordmark, the header and the content share one
+   padded column that is at least a screen tall. */
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding: clamp(6px, 1vh, 12px) var(--page-pad) var(--page-pad);
 }
 
 a {
@@ -251,7 +281,7 @@ a {
   padding: 3px 11px;
   background: var(--color-chip);
   color: var(--color-chip-label);
-  font-size: 0.8125rem;
+  font-size: var(--type-chip);
   line-height: 1.2;
   letter-spacing: 0.01em;
   white-space: nowrap;
@@ -262,9 +292,10 @@ a.chip:hover {
   background: var(--color-chip-hover);
 }
 
-/* Selected field: light neutral grey, dark label (e.g. current page). */
+/* Selected field: light neutral grey, dark label (e.g. current page). It
+   keeps the resting chip's width, so the nav holds its shape from page to
+   page. */
 .chip--active {
-  min-width: 6.5em;
   background: var(--color-chip-active);
   color: var(--color-ink);
 }

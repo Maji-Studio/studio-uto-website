@@ -1,5 +1,5 @@
 .intro {
-  --ink: #0a0a0a;
+  --ink: var(--color-ink);
   margin-top: clamp(24px, 4vh, 56px);
 }
 
@@ -60,7 +60,7 @@
   left: 0;
   z-index: 1;
   width: clamp(200px, 20vw, 320px);
-  background: #eeeeee;
+  background: var(--color-chip-fill);
   visibility: hidden;
   pointer-events: none;
   translate: var(--cx, 0) var(--cy, 0);
@@ -100,20 +100,9 @@
   pointer-events: auto;
 }
 
+/* The labels are the header's chip (global .chip), sized to their text. */
 .intro__fact a {
-  display: block;
-  padding: 6px 10px 5px;
-  background: var(--ink);
-  color: #fff;
-  font-size: 0.75rem;
-  line-height: 1.2;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-}
-
-.intro__fact a:hover {
-  background: #eeeeee;
-  color: var(--ink);
+  min-width: 0;
 }
 
 /* Hovered label (and its peek) sits above its neighbours. */
@@ -180,11 +169,6 @@
   .intro__fact {
     left: var(--mx);
     top: var(--my);
-  }
-
-  .intro__fact a {
-    padding: 5px 8px 4px;
-    font-size: 0.6875rem;
   }
 }
 

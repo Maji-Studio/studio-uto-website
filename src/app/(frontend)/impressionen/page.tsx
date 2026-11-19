@@ -23,7 +23,7 @@ export default async function ImpressionenPage() {
 
   return (
     <>
-      <main id="content" className="impressionen">
+      <main id="content" className="page impressionen">
         {/* Full wordmark at the top — identical treatment to the homepage. */}
         <Logo />
 
@@ -37,9 +37,10 @@ export default async function ImpressionenPage() {
 
         <section className="collab">
           <p className="collab__text">
-            STUDIO UTO collaborates with a network of creative professionals
-            including producers, DOPs, editors, graphic designers,
-            typedesigners, strategists, signage specialist, moderators and more.
+            Studio Uto arbeitet mit einem Netzwerk von Kreativen zusammen:
+            Produzent:innen, DOPs, Editor:innen, Grafik- und
+            Schriftgestalter:innen, Strateg:innen, Signaletiker:innen,
+            Moderator:innen und weiteren.
           </p>
           <p className="collab__email">
             <a href={`mailto:${settings.contact.email}`}>

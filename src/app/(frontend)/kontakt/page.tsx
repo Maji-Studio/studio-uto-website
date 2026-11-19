@@ -22,7 +22,7 @@ export default async function KontaktPage() {
   const settings = await getSiteSettings();
 
   return (
-    <main id="content" className="kontakt">
+    <main id="content" className="page kontakt">
       {/* Full wordmark — identical treatment to the homepage. */}
       <Logo />
 

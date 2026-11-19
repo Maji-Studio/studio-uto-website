@@ -5,8 +5,6 @@ import SiteFooter from "@/components/site/SiteFooter";
 import { getInformationSections, getSiteSettings } from "@/lib/content";
 import { pageMetadata } from "@/lib/metadata";
 
-import "./page.css";
-
 export const generateMetadata = () =>
   pageMetadata({
     title: "Information",
@@ -21,7 +19,7 @@ export default async function InformationPage() {
   ]);
 
   return (
-    <main id="content" className="information">
+    <main id="content" className="page information">
       {/* Full wordmark — identical treatment to the homepage. */}
       <Logo />
 

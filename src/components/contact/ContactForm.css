@@ -1,11 +1,11 @@
 .cform {
   /* Field type scale — large, like a headline set on ruled paper. */
-  --field-size: clamp(1.35rem, 2.4vw, 1.8rem);
+  --field-size: var(--type-lead);
   /* Hairline + resting label tuned for the page's grey ground: the rule sits a
      step darker than the background (a lighter rule would disappear into it),
      the label a dark charcoal that reads clearly without going full ink. */
-  --field-rule: #82827e;
-  --field-label: #2a2a28;
+  --field-rule: var(--color-rule-ground);
+  --field-label: var(--color-ink-soft);
   display: flex;
   flex-direction: column;
 }
@@ -132,8 +132,8 @@
 .cform__status {
   margin: 0.9em 0 0;
   min-height: 1.2em;
-  color: var(--color-muted);
-  font-size: 0.875rem;
+  color: var(--color-ink-soft);
+  font-size: var(--type-chip);
   line-height: 1.35;
 }
 

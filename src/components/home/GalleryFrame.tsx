@@ -6,8 +6,7 @@ import "./GalleryFrame.css";
 
 /*
  * Homepage hero. The frame is also a Lightbox gallery: the visible image is the
- * first slide and the rest of the studio photos ride along hidden, so "Take a
- * tour" (or a click on the image) opens the full walk-through from the hero.
+ * first slide and the rest of the studio photos ride along hidden, so "Rundgang" (or a click on the image) opens the full walk-through from the hero.
  * Without JS the tour link falls back to the Grundriss section and its photos.
  */
 export default function GalleryFrame({ photos }: { photos: ContentImage[] }) {
@@ -35,10 +34,10 @@ export default function GalleryFrame({ photos }: { photos: ContentImage[] }) {
         <a
           className="gallery__tour chip"
           href="/information/#grundriss"
-          data-label="Take a tour"
+          data-label="Rundgang"
           data-tour
         >
-          Take a tour
+          Rundgang
         </a>
       </figcaption>
 

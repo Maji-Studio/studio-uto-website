@@ -237,7 +237,7 @@ export default function Intro({ sections, address }: Props) {
                 } as React.CSSProperties
               }
             >
-              <a href={f.href}>
+              <a className="chip" href={f.href} data-label={f.label}>
                 {f.label}
                 <StaticImg
                   className="intro__peek"

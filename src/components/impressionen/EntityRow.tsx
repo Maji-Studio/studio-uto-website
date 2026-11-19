@@ -24,7 +24,7 @@ export default function EntityRow({ entity }: { entity: Impression }) {
         <div className="entity__title" data-lightbox-title>
           <h2 className="entity__name">{entity.name}</h2>
           {entity.client && (
-            <p className="entity__client">for {entity.client}</p>
+            <p className="entity__client">für {entity.client}</p>
           )}
         </div>
       </header>

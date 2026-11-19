@@ -2,7 +2,7 @@
   position: relative;
   width: min(92vw, 65vw);
   max-width: 1000px;
-  margin: clamp(28px, 6vh, 72px) auto 0;
+  margin: var(--space-top) auto 0;
 }
 
 .gallery .lb-thumb__image {
@@ -25,16 +25,20 @@
   pointer-events: auto;
   justify-content: center;
   min-width: 0;
-  background: rgba(78, 80, 82, 0.72);
-  color: #fff;
-  font-size: 0.9375rem;
-  letter-spacing: 0.005em;
+  background: var(--color-caption);
+  color: var(--color-chip-label);
   padding: 7px 16px;
   backdrop-filter: blur(1px);
 }
 
+/* The rising hover fill carries the pill's own padding and centring. */
+.gallery__tour::after {
+  justify-content: center;
+  padding: 7px 16px;
+}
+
 .gallery__tour:hover {
-  background: rgba(60, 62, 64, 0.82);
+  background: var(--color-caption-hover);
 }
 
 /* Corner reframe marks near the bottom centre. */

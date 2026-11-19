@@ -148,7 +148,7 @@
   padding: 3px 11px;
   color: var(--color-ink);
   font: inherit;
-  font-size: 0.8125rem;
+  font-size: var(--type-chip);
   line-height: 1.2;
   cursor: pointer;
 }

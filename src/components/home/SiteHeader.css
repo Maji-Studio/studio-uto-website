@@ -15,7 +15,7 @@
 .site-header__group {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--space-chip);
 }
 
 .site-header__meta {

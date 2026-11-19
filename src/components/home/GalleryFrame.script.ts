@@ -3,7 +3,7 @@ export function initGalleryTour(): () => void {
   const { signal } = ac;
   const cleanups: Array<() => void> = [];
 
-  // "Take a tour" opens the Lightbox on the hero (first slide) instead of
+  // "Rundgang" opens the Lightbox on the hero (first slide) instead of
   // jumping to the Grundriss photos.
   document.querySelectorAll<HTMLElement>("[data-tour]").forEach((link) => {
     link.addEventListener(

@@ -1,13 +1,6 @@
 body:has(.kontakt) {
-  --color-paper: #a9a9a6;
-  background: #a9a9a6;
-}
-
-.kontakt {
-  display: flex;
-  flex-direction: column;
-  min-height: 100dvh;
-  padding: clamp(6px, 1vh, 12px) var(--page-pad) var(--page-pad);
+  --color-paper: var(--color-ground);
+  background: var(--color-ground);
 }
 
 /*
@@ -21,7 +14,7 @@ body:has(.kontakt) {
   grid-template-columns: 1fr 1fr;
   column-gap: clamp(28px, 5vw, 72px);
   align-items: stretch;
-  margin-top: clamp(28px, 5vh, 56px);
+  margin-top: var(--space-top);
 }
 
 /* Beteiligte — large grotesque, tightly leaded, sitting at the baseline. */
@@ -35,7 +28,7 @@ body:has(.kontakt) {
 .people__heading,
 .people__name {
   margin: 0;
-  font-size: clamp(1.5rem, 3.2vw, 2.35rem);
+  font-size: var(--type-manifesto);
   font-weight: 400;
   line-height: 1.04;
   letter-spacing: -0.015em;
@@ -47,7 +40,7 @@ body:has(.kontakt) {
 }
 
 .people__name {
-  color: #2c2c2a;
+  color: var(--color-ink-soft);
 }
 
 /* Each name links out to the person's own site; underline on hover only. */
@@ -80,7 +73,7 @@ body:has(.kontakt) {
 .kontakt__address {
   margin-top: clamp(18px, 3vh, 30px);
   font-style: normal;
-  font-size: clamp(1.35rem, 2.4vw, 1.8rem);
+  font-size: var(--type-lead);
   line-height: 1.12;
   letter-spacing: -0.01em;
 }
