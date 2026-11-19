@@ -1,6 +1,7 @@
 import Logo from "@/components/home/Logo";
 import SiteHeader from "@/components/home/SiteHeader";
 import ContactForm from "@/components/contact/ContactForm";
+import SiteFooter from "@/components/site/SiteFooter";
 import { getSiteSettings } from "@/lib/content";
 import { pageMetadata } from "@/lib/metadata";
 
@@ -57,6 +58,8 @@ export default async function KontaktPage() {
           </address>
         </div>
       </div>
+
+      <SiteFooter name={settings.name} />
     </main>
   );
 }

@@ -1,0 +1,146 @@
+/*
+ * Hero: the first studio photo edge to edge, filling the rest of the first
+ * screen, never taller than the photo's own 3:2. --studio-sheet-above is the
+ * height of the wordmark and header above it. Measured: 240 px at 1440 and
+ * 768 wide, 270 px at 390 (the header chips wrap). Update it if the header
+ * changes.
+ */
+.studio-sheet {
+  --studio-sheet-above: 240px;
+}
+
+.studio-sheet__hero {
+  margin-top: var(--space-top);
+  margin-inline: calc(-1 * var(--page-pad));
+}
+
+.studio-sheet__hero .lb-thumb__image {
+  height: clamp(360px, calc(100svh - var(--studio-sheet-above)), 66.667vw);
+  object-fit: cover;
+}
+
+@media (max-width: 720px) {
+  .studio-sheet {
+    --studio-sheet-above: 270px;
+  }
+
+  /* A portrait-leaning crop, so the hero still fills the screen. */
+  .studio-sheet__hero .lb-thumb__image {
+    height: clamp(360px, calc(100svh - var(--studio-sheet-above)), 125vw);
+  }
+}
+
+/*
+ * The short fact sheet: lines at title size instead of manifesto size,
+ * section titles as chips, no label column, tighter spacing, and the
+ * sections in two or three columns on wider screens. Scoped to the homepage; /information/ keeps the large sheet.
+ */
+.studio-sheet .facts {
+  --manifesto: var(--type-title);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 48px;
+  align-items: start;
+}
+
+/* No section nav or numbers on the short sheet: the numbers belong to the
+   full sheet on /information/. */
+.studio-sheet .facts-nav,
+.studio-sheet .facts-head__number {
+  display: none;
+}
+
+.studio-sheet .facts-sec {
+  padding-top: clamp(40px, 7vh, 72px);
+}
+
+.studio-sheet .facts-head,
+.studio-sheet .facts-block {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.studio-sheet .facts-block__main {
+  grid-column: 1;
+}
+
+/* The title: a black chip, one step above the fact lines. */
+.studio-sheet .facts-head__title {
+  justify-self: start;
+  padding: 0.05em 0.5em 0.07em 0.2em;
+  background: var(--color-chip);
+  color: var(--color-chip-label);
+  font-size: var(--type-lead);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  text-box: normal;
+}
+
+.studio-sheet .facts-body {
+  gap: 16px;
+  padding-top: 16px;
+}
+
+.studio-sheet .facts-block__main {
+  gap: 10px;
+}
+
+.studio-sheet .facts-plan {
+  width: min(100%, 420px);
+}
+
+@media (min-width: 701px) {
+  .studio-sheet .facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1100px) {
+  .studio-sheet .facts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* The one link on to the full sheet. */
+.studio-sheet__more {
+  margin: clamp(32px, 5vh, 56px) 0 0;
+}
+
+/* The remaining photos, flush: two large, then three. */
+.studio-sheet__photos {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin-top: clamp(56px, 10vh, 112px);
+  margin-inline: calc(-1 * var(--page-pad));
+}
+
+.studio-sheet__photos .lb-thumb {
+  grid-column: span 2;
+}
+
+.studio-sheet__photos .lb-thumb:nth-child(-n + 2) {
+  grid-column: span 3;
+}
+
+.studio-sheet__photos .lb-thumb__image {
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+}
+
+@media (max-width: 700px) {
+  .studio-sheet .facts-head {
+    font-size: inherit;
+  }
+
+  .studio-sheet__photos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .studio-sheet__photos .lb-thumb,
+  .studio-sheet__photos .lb-thumb:nth-child(-n + 2) {
+    grid-column: span 1;
+  }
+
+  .studio-sheet__photos .lb-thumb:first-child {
+    grid-column: 1 / -1;
+  }
+}

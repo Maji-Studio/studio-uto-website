@@ -193,7 +193,9 @@ Retired, kept only for the old decks: `Alt / Meta Bar`, `Alt / Rail`, `Alt / Row
 
 ## Changelog
 
-- **2026-11-19:** The homepage hero is now `StudioGallery`: the first studio photo edge to edge, filling the rest of the first screen, and the other five stepping down the page below it with caption chips. All six open the Lightbox. The "Rundgang" pill and the corner marks are gone. No Figma change.
+- **2026-11-19:** The homepage is now `StudioSheet`: the hero photo, then one or two lines from each /information/ section at title size, section titles as black chips, in up to three columns, one "Alle Informationen" chip, and the other five photos in one flush block. `StudioGallery` and the chrome intro with fact labels are gone from the homepage; the chrome U is the footer. No Figma change.
+- **2026-11-19:** The footer on every page (Kontakt included) is now the chrome U on a shorter stage, its chips the site's pages, Instagram, Jetzt anfragen, the e-mail and the street, above the two small lines. The header nav reads Studio, Information, Impressionen, Equipment, Kontakt. No Figma change.
+- **2026-11-19:** The homepage hero is now `StudioGallery`: the first studio photo edge to edge, filling the rest of the first screen, and the other five stepping down the page below it without captions. All six open the Lightbox. The "Rundgang" pill and the corner marks are gone. No Figma change.
 - **2026-11-09:** Website consistency pass. New CSS tokens for the type scale, spacing, `ground`, `ink-soft` and `caption`; all pages share the `.page` shell and the same gap under the header. The homepage fact labels are now the global chip. The active nav chip no longer widens. Footer, "Rundgang", "für" and the Impressionen closing statement are German. No Figma change.
 - **2026-10-29:** Facts moved from `src/lib/*.ts` into Payload CMS ([ADR 0003](adr/0003-payload-cms-on-nextjs.md)). The website tokens and components are unchanged.
 - **2026-10-01:**

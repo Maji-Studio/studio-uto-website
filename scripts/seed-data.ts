@@ -19,12 +19,12 @@ export const siteSettings = {
       href: "/",
     },
     {
-      label: "Impressionen",
-      href: "/impressionen/",
-    },
-    {
       label: "Information",
       href: "/information/",
+    },
+    {
+      label: "Impressionen",
+      href: "/impressionen/",
     },
     {
       label: "Equipment",

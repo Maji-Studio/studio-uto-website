@@ -1,5 +1,5 @@
 import StaticImg from "@/components/site/StaticImg";
-import type { SiteSettings, StudioSection } from "@/lib/content/types";
+import type { NavItem, SiteSettings, StudioSection } from "@/lib/content/types";
 import { staticImages, type StaticImage } from "@/lib/static-images";
 
 import IntroScript from "./Intro.client";
@@ -43,6 +43,12 @@ interface Props {
   /** The Information page's sections: the fact labels are read out of them. */
   sections: StudioSection[];
   address: SiteSettings["address"];
+  /**
+   * Footer use: these links take the fact labels' places (in order, as many
+   * as there are slots) instead of the studio facts.
+   */
+  links?: NavItem[];
+  className?: string;
 }
 
 /** "L 7 m · B 7 m · H 5.7 m" → { L: "7", B: "7", H: "5.7" } */
@@ -62,7 +68,7 @@ type FactDef = [
   z: number,
 ];
 
-export default function Intro({ sections, address }: Props) {
+export default function Intro({ sections, address, links, className }: Props) {
   const byId = (id: string) => sections.find((s) => s?.id === id);
   const allPairs = (id: string) =>
     (byId(id)?.blocks ?? []).flatMap((b) => b?.pairs ?? []);
@@ -163,11 +169,24 @@ export default function Intro({ sections, address }: Props) {
       0.3,
     ],
   ];
-  const facts = factDefs
-    .filter((f) => !!f[0])
-    .map(([label, id, photo, x, y, mx, my, z], i) => ({
-      label: label as string,
-      href: `/information/#${id}`,
+  // Each label takes a slot (position, depth, hover photo). As a footer, the
+  // links fill the slots in order; otherwise each fact keeps its own slot and
+  // links to its section on /information/.
+  const placed: { link: NavItem; slot: FactDef }[] = links
+    ? links
+        .slice(0, factDefs.length)
+        .map((link, i) => ({ link, slot: factDefs[i] }))
+    : factDefs
+        .filter((f) => !!f[0])
+        .map((f) => ({
+          link: { label: f[0] as string, href: `/information/#${f[1]}` },
+          slot: f,
+        }));
+  const facts = placed.map(
+    ({ link, slot: [, , photo, x, y, mx, my, z] }, i) => ({
+      label: link.label,
+      href: link.href,
+      external: link.external,
       photo,
       x,
       y,
@@ -178,10 +197,14 @@ export default function Intro({ sections, address }: Props) {
       // The peek opens away from the stage edge it would run off.
       flipX: x > 60,
       flipY: y > 65,
-    }));
+    }),
+  );
 
   return (
-    <section className="intro" aria-label="Studio Uto in Zahlen">
+    <section
+      className={className ? `intro ${className}` : "intro"}
+      aria-label={links ? "Seiten und Kontakt" : "Studio Uto in Zahlen"}
+    >
       <div className="intro__stage" data-intro-stage>
         <div className="intro__object">
           <StaticImg
@@ -237,7 +260,13 @@ export default function Intro({ sections, address }: Props) {
                 } as React.CSSProperties
               }
             >
-              <a className="chip" href={f.href} data-label={f.label}>
+              <a
+                className="chip"
+                href={f.href}
+                data-label={f.label}
+                target={f.external ? "_blank" : undefined}
+                rel={f.external ? "noopener noreferrer" : undefined}
+              >
                 {f.label}
                 <StaticImg
                   className="intro__peek"
