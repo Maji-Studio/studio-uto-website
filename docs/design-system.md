@@ -169,7 +169,7 @@ Retired, kept only for the old decks: `Alt / Meta Bar`, `Alt / Rail`, `Alt / Row
 - **Type:** Helvetica Neue Regular for almost everything. Bold appears only in uppercase labels.
 - **Glyphs:** the set is fixed at 18 rental glyphs (Miete, Raum, Zugang). Equipment is named in text, not drawn.
 - **Images:** credit real client work to its photographer. Label generated imagery once per deck: "Bilder: generierte Konzeptstudien". Never present generated garments as products.
-- **Copy:** German on every surface, including the footer, image captions and the hero's "Rundgang" chip. Swiss spelling ("ss", never "ß"). Keep it short and concrete. No em dashes, no puffery, no "nicht nur … sondern auch". Sentence case; uppercase comes only through the Label styles.
+- **Copy:** German on every surface, including the footer, image captions and interface words ("Rundgang", "Bild 2 von 6"). Swiss spelling ("ss", never "ß"). Keep it short and concrete. No em dashes, no puffery, no "nicht nur … sondern auch". Sentence case; uppercase comes only through the Label styles.
 - **Facts:** Shooting-Fläche L 7 m · B 7 m · H 5.7 m; Ganzes Studio L 14 m · B 7 m · H 2.7 m. Rates excl. MWST: Ganzer Tag (10 h) CHF 850 · Halber Tag (4 h) CHF 550 · Zusätzliche Stunde CHF 150 · Styling-Raum CHF 100. Mo – Fr 9:00 – 18:00 Uhr.
 
 ## Working on the file with agents
@@ -193,6 +193,7 @@ Retired, kept only for the old decks: `Alt / Meta Bar`, `Alt / Rail`, `Alt / Row
 
 ## Changelog
 
+- **2026-11-19:** The homepage hero is now `StudioGallery`: the first studio photo edge to edge, filling the rest of the first screen, and the other five stepping down the page below it with caption chips. All six open the Lightbox. The "Rundgang" pill and the corner marks are gone. No Figma change.
 - **2026-11-09:** Website consistency pass. New CSS tokens for the type scale, spacing, `ground`, `ink-soft` and `caption`; all pages share the `.page` shell and the same gap under the header. The homepage fact labels are now the global chip. The active nav chip no longer widens. Footer, "Rundgang", "für" and the Impressionen closing statement are German. No Figma change.
 - **2026-10-29:** Facts moved from `src/lib/*.ts` into Payload CMS ([ADR 0003](adr/0003-payload-cms-on-nextjs.md)). The website tokens and components are unchanged.
 - **2026-10-01:**
