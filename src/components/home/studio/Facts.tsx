@@ -120,6 +120,20 @@ export default function Facts({
           </header>
 
           <div className="facts-body">
+            {sec.id === "grundriss" && (
+              <div className="facts-block">
+                <span className="chip facts-label">Raumansicht</span>
+                <div className="facts-block__main">
+                  <a
+                    className="chip"
+                    href="/studio-3d/"
+                    data-label="Studio Tour starten"
+                  >
+                    Studio Tour starten
+                  </a>
+                </div>
+              </div>
+            )}
             {sec.blocks.map((b, bi) => (
               <div className="facts-block" key={bi}>
                 {b.label && <span className="chip facts-label">{b.label}</span>}

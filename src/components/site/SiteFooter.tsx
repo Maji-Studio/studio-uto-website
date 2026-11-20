@@ -4,12 +4,13 @@ import type { NavItem, SiteSettings } from "@/lib/content/types";
 
 import "./SiteFooter.css";
 
-/** The chrome footer's labels: pages, socials, e-mail and the street. */
+/** The chrome footer's labels: pages, the studio tour, socials, e-mail and the street. */
 function footerLinks(settings: SiteSettings): NavItem[] {
   const { contact, address } = settings;
   return [
     // "#" marks a page that does not exist yet (Equipment).
     ...settings.primaryNav.filter((n) => n.href !== "#"),
+    { label: "Studio Tour", href: "/studio-3d/" },
     ...settings.socials,
     { label: contact.email, href: `mailto:${contact.email}` },
     { label: address.street, href: "/information/#anfahrt" },
