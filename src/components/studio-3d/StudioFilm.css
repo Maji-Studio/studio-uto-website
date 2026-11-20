@@ -1,0 +1,472 @@
+/* The stage lies behind the page, so the body gives up its background. The
+   root takes the haze the stage renders, for the moment before the picture
+   is there and for the overscroll past its edges. On the homepage that holds
+   only once the stage covers the screen. */
+html:has(.film:not(.film--entry)),
+html[data-film-stage="full"] {
+  background: var(--haze, var(--color-ground));
+}
+html:has(.film) body {
+  background: none;
+}
+html[data-haze] {
+  transition: color 600ms ease;
+}
+html[data-haze="dark"] {
+  --color-ink: #efefeb;
+  --color-ink-soft: #d8d8d3;
+  --color-muted: #9a9a96;
+  --color-chip: #efefeb;
+  --color-chip-hover: #ffffff;
+  --color-chip-label: #0a0a0a;
+  --color-chip-fill: #111111;
+  --color-chip-active: #6f6f6c;
+  --color-focus: #9cc4e4;
+}
+html[data-haze="dark"] a.chip:not([href="#"])::after {
+  color: #efefeb;
+}
+html[data-haze] .logo,
+html[data-haze] .chip {
+  transition:
+    color 600ms ease,
+    background-color 600ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-haze],
+  html[data-haze] .logo,
+  html[data-haze] .chip {
+    transition: none;
+  }
+}
+/* Without the stage (no WebGL, or its files did not come) the still shows
+   the first scene only, so the scenes are not offered. */
+.film[data-stage="error"] :is(.film__dock, .film__next) {
+  display: none;
+}
+
+/* Scenario chips are buttons that look like the site's chips. */
+button.chip {
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+  min-height: 28px;
+}
+button.chip[aria-pressed="true"] {
+  background: var(--color-chip-active);
+  color: var(--color-ink);
+}
+
+/* The film fills the rest of the first screen under the header, with the
+   line at its bottom left and the scenes at its bottom right. --film-top is
+   the film's distance from the top of the page, measured by the component;
+   the fallback is for the moment before that. */
+.film {
+  --film-gap: clamp(16px, 3vh, 32px);
+  position: relative;
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: calc(100svh - var(--film-top, 28svh) - var(--page-pad));
+  margin-inline: calc(-1 * var(--page-pad));
+  margin-top: var(--space-chip);
+}
+
+/* The stage fills the screen behind the whole page, header and footer
+   included, so the picture has no edge. The large viewport height keeps it
+   from resizing when a phone's browser bars slide away. */
+.film__stage {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: -1;
+  height: 100lvh;
+  overflow: clip;
+}
+
+/* The poster sits under the canvas, which fades in over it once it renders. */
+.film__poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.film__canvas {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 900ms ease;
+}
+.film__canvas[data-ready="true"] {
+  opacity: 1;
+}
+
+/* The whole picture: drag to turn the model, click for the next scene. The
+   film does not scroll, so every touch on the picture is the film's. */
+.film__next {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: grab;
+  touch-action: none;
+}
+.film__next:active {
+  cursor: grabbing;
+}
+
+/* The way out of the tour sits where the picture begins, under the header,
+   at the right. */
+.film .film__back.chip {
+  position: absolute;
+  top: 0;
+  right: var(--page-pad);
+  gap: 0.5em;
+  min-width: 0;
+}
+
+.film__ui {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--film-gap);
+  pointer-events: none;
+}
+
+/* One line per scene. All four share one cell, so the block keeps its
+   height while they cross-fade. */
+.film__copy {
+  display: grid;
+  padding-inline: var(--page-pad);
+}
+.film__line {
+  grid-area: 1 / 1;
+  align-self: end;
+  opacity: 0;
+  transition: opacity 900ms ease;
+}
+.film__line[data-current="true"] {
+  opacity: 1;
+}
+.film__copy h2 {
+  max-width: 16ch;
+  margin: 0;
+  font-size: var(--type-display);
+  font-weight: 400;
+  line-height: 0.98;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+/* The scenes, under the model, with an arrow at either end to step through. */
+.film__dock {
+  display: flex;
+  flex: none;
+  gap: var(--space-chip);
+  padding-inline: var(--page-pad);
+  pointer-events: auto;
+}
+/* The scene chips are the page's main control, so they are set large, the
+   way numbers are set as chips inside a line. */
+.film__dock .chip {
+  min-width: 0;
+  min-height: 0;
+  padding: 0.24em 0.7em 0.28em 0.32em;
+  font-size: var(--type-lead);
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+.film__dock .film__arrow {
+  padding-inline: 0.45em;
+}
+
+/* Narrow and portrait screens: the scenes go under the line, in one row with
+   one arrow; chips grow to touch size and the line spans the width. */
+@media (max-aspect-ratio: 1/1), (max-width: 720px) {
+  .film__ui {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .film__dock .film__arrow:first-child {
+    display: none;
+  }
+  .film__copy h2 {
+    max-width: 14ch;
+  }
+}
+@media (max-width: 600px) {
+  .film__copy h2 {
+    max-width: none;
+  }
+  .film__dock .chip {
+    min-height: 44px;
+    font-size: var(--type-title);
+  }
+  .film .film__back.chip {
+    top: 8px;
+    min-height: 44px;
+  }
+}
+/* The narrowest phones: the four scenes fill the row, and a tap on the
+   picture is the way to the next one. */
+@media (max-width: 370px) {
+  .film__dock .film__arrow {
+    display: none;
+  }
+  .film__dock .chip {
+    padding-inline: 0.28em 0.5em;
+  }
+}
+/* Short portrait screens: the header takes half the first screen, so the
+   line steps down a size to leave the model room. */
+@media (max-aspect-ratio: 1/1) and (max-height: 700px) {
+  .film__copy h2 {
+    font-size: var(--type-manifesto);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+  }
+}
+
+/* ── On the homepage: the film begins as the hero photo ───────────────────
+   The homepage wraps the film in its hero block (StudioSheet), which gives it
+   the edge-to-edge margins. */
+.film--entry {
+  margin: 0;
+}
+
+/* The hero's frame: the photo fills the rest of the first screen, never
+   taller than its own 3:2. --studio-sheet-above is the homepage's measure of
+   the wordmark and header above it. */
+.film__hero {
+  position: relative;
+  display: block;
+}
+.film__hero img {
+  width: 100%;
+  height: clamp(
+    360px,
+    calc(100svh - var(--studio-sheet-above, 240px)),
+    66.667vw
+  );
+  object-fit: cover;
+}
+@media (max-width: 720px) {
+  /* A portrait-leaning crop, so the hero still fills the screen. */
+  .film__hero img {
+    height: clamp(
+      360px,
+      calc(100svh - var(--studio-sheet-above, 270px)),
+      125vw
+    );
+  }
+}
+.film__hero:focus-visible {
+  outline-offset: -3px;
+}
+
+/* The way in: set large, like the scene chips, with an arrow. */
+.film__cue {
+  position: absolute;
+  left: var(--page-pad);
+  bottom: var(--page-pad);
+  gap: 0.5em;
+  min-height: 0;
+  padding: 0.24em 0.45em 0.28em 0.32em;
+  font-size: var(--type-lead);
+  line-height: 1;
+  letter-spacing: -0.01em;
+  transition:
+    opacity 200ms ease,
+    background-color 120ms ease;
+}
+.film__cue-arrow {
+  transition: translate 240ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.film__hero:hover .film__cue {
+  background: var(--color-chip-hover);
+}
+.film__hero:hover .film__cue-arrow {
+  translate: 0.22em 0;
+}
+/* The model is still on its way: the arrow keeps walking. */
+.film__hero[data-busy="true"] .film__cue-arrow {
+  animation: film-walk 900ms ease-in-out 250ms infinite;
+}
+@keyframes film-walk {
+  50% {
+    translate: 0.45em 0;
+  }
+}
+
+/* The photo's second copy, on the stage. The component pins it to its place
+   in the room while the camera leaves; its edges soften as it fades, so it
+   never reads as a rectangle in the model. */
+.film__plane {
+  --feather: 0%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform, opacity;
+  mask-image:
+    linear-gradient(
+      to right,
+      transparent,
+      #000 var(--feather),
+      #000 calc(100% - var(--feather)),
+      transparent
+    ),
+    linear-gradient(
+      to bottom,
+      transparent,
+      #000 var(--feather),
+      #000 calc(100% - var(--feather)),
+      transparent
+    );
+  mask-composite: intersect;
+}
+.film__plane img {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: 50% 50%;
+  transform-origin: 0 0;
+}
+.film--entry .film__canvas {
+  opacity: 1;
+  transition: none;
+}
+
+/* As the photo: the film's layout and controls wait, the stage is unseen. */
+.film--entry:is([data-phase="photo"], [data-phase="moving"]) {
+  display: block;
+  min-height: 0;
+}
+.film--entry:is([data-phase="photo"], [data-phase="moving"])
+  :is(.film__next, .film__back, .film__ui) {
+  display: none;
+}
+.film--entry[data-phase="photo"] .film__stage {
+  visibility: hidden;
+}
+/* The way sets the plane's visibility itself, which would show it through
+   the hidden stage once the homepage is back. */
+.film--entry[data-phase="photo"] .film__plane {
+  visibility: hidden !important;
+}
+/* On the way the hero keeps its place in the page, empty: the picture is on
+   the stage. */
+.film--entry[data-phase="moving"] .film__hero {
+  pointer-events: none;
+}
+.film--entry[data-phase="moving"] .film__hero img {
+  visibility: hidden;
+}
+.film--entry[data-phase="moving"] .film__cue {
+  opacity: 0;
+}
+
+/* As the film: the hero is gone and the controls come in while the camera
+   settles; before the way back they fade first. */
+.film--entry:is([data-phase="film"], [data-phase="leaving"]) .film__hero {
+  display: none;
+}
+.film--entry[data-phase="film"] :is(.film__copy, .film__dock, .film__back) {
+  animation: film-arrive 900ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.film--entry[data-phase="film"] .film__dock {
+  animation-delay: 140ms;
+}
+.film--entry[data-phase="film"] .film__back {
+  animation-delay: 280ms;
+}
+.film--entry[data-phase="leaving"] :is(.film__ui, .film__back) {
+  opacity: 0;
+  transition: opacity 240ms ease;
+}
+@keyframes film-arrive {
+  from {
+    opacity: 0;
+    translate: 0 14px;
+  }
+}
+
+/* What follows the hero on the homepage steps aside for the film, and the
+   hero block takes the film's own distance from the header. */
+html[data-film-phase] .studio-sheet > :not(.studio-sheet__hero) {
+  transition: opacity 450ms ease;
+}
+html[data-film-rest="out"] .studio-sheet > :not(.studio-sheet__hero) {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 450ms ease,
+    visibility 0s 450ms;
+}
+html:is([data-film-phase="film"], [data-film-phase="leaving"])
+  .studio-sheet
+  > :not(.studio-sheet__hero) {
+  display: none;
+}
+/* The film is one screen with the stage fixed behind it, and it does not
+   scroll: the footer steps aside and the page is locked while the film is
+   the page. On the way in and out the footer fades with the rest. */
+html[data-film-phase] .site-footer {
+  transition: opacity 450ms ease;
+}
+html[data-film-rest="out"] .site-footer {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 450ms ease,
+    visibility 0s 450ms;
+}
+html:is([data-film-phase="film"], [data-film-phase="leaving"]) .site-footer,
+.page:has(> .film:not(.film--entry)) .site-footer {
+  display: none;
+}
+html:is(
+  [data-film-phase="moving"],
+  [data-film-phase="film"],
+  [data-film-phase="leaving"]
+),
+html:has(.film:not(.film--entry)),
+html:is(
+    [data-film-phase="moving"],
+    [data-film-phase="film"],
+    [data-film-phase="leaving"]
+  )
+  body,
+html:has(.film:not(.film--entry)) body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+/* Touch screens of any width: the scenes and the way out at touch size. */
+@media (pointer: coarse) {
+  .film__dock .chip,
+  .film .film__back.chip {
+    min-height: 44px;
+  }
+  .film__dock .film__arrow {
+    min-width: 44px;
+  }
+}
+html:is([data-film-phase="film"], [data-film-phase="leaving"])
+  .studio-sheet__hero {
+  margin-top: var(--space-chip);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .film__line {
+    transition: none;
+  }
+  .film--entry[data-phase="film"] :is(.film__copy, .film__dock, .film__back) {
+    animation: none;
+  }
+}

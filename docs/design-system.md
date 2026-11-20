@@ -54,7 +54,7 @@ Slide rows, in order:
 | `paper-alt` | #EEEEEE | `var(--color-chip-fill)` | light chips |
 | `line` | #E4E4E0 | `var(--color-line)` | rare light rules |
 | `caption` | #4E5052 at 72 % | `var(--color-caption)` | image caption pill |
-| `field` | #2B4C8C | (none) | Uto Kobalt, used only for covers and breaks in decks |
+| `field` | #2B4C8C | (none) | Uto Kobalt, used only for covers and breaks in decks, and as the haze of one 3D scene on the website |
 | `field-ink` | #0A0A0A | (none) | text on field |
 
 ### `UTO / Space`
@@ -165,7 +165,8 @@ Retired, kept only for the old decks: `Alt / Meta Bar`, `Alt / Rail`, `Alt / Row
 ## Brand rules
 
 - **Wordmark:** runs edge to edge, 11 px from the page edge, with the chip row 10 px below (`SiteHeader` `margin-top`). It is at least 32 px high on screen, the smallest size on the website (`Logo.tsx`: font-size clamp minimum 40 px × line-height 0.8). Don't stretch, rotate or recolour it by hand. Only the UTO Variable width axis changes its shape.
-- **Colour:** monochrome. Uto Kobalt (`field`) appears only on deck covers and breaks, never on the website.
+- **Colour:** monochrome. Uto Kobalt (`field`) appears only on deck covers and breaks, never in website layout.
+- **3D scenes:** the one exception to monochrome. A rendered 3D or motion scene may carry one saturated colour field, Kobalt included, and the page around it takes that colour for as long as the scene shows. The model itself stays a grey card maquette; colour comes from the haze and the lamps. `/studio-3d/` has four: Tag `#A9A9A6`, Abendsonne `#C98F66`, Shooting `#2B4C8C`, Event `#6A6134` (`src/components/studio-3d/scenarios.ts`). These are scene colours, not tokens. Don't use them for chips, type or backgrounds elsewhere.
 - **Type:** Helvetica Neue Regular for almost everything. Bold appears only in uppercase labels.
 - **Glyphs:** the set is fixed at 18 rental glyphs (Miete, Raum, Zugang). Equipment is named in text, not drawn.
 - **Images:** credit real client work to its photographer. Label generated imagery once per deck: "Bilder: generierte Konzeptstudien". Never present generated garments as products.
@@ -193,7 +194,10 @@ Retired, kept only for the old decks: `Alt / Meta Bar`, `Alt / Rail`, `Alt / Row
 
 ## Changelog
 
+- **2026-11-20:** The 3D film is the "Studio Tour": the hero cue reads "Studio Tour starten", the way out is the chip "Studio Tour beenden" top right, and "Studio Tour" is a chip in the footer. The scenes are Tag, Abendsonne, Shooting (the blacked-out room with a film set, seen from the east) and Event (one long table with twelve seats). The tour is one screen and does not scroll; the footer steps aside while it shows. No token or Figma change.
 - **2026-11-19:** The homepage is now `StudioSheet`: the hero photo, then one or two lines from each /information/ section at title size, section titles as black chips, in up to three columns, one "Alle Informationen" chip, and the other five photos in one flush block. `StudioGallery` and the chrome intro with fact labels are gone from the homepage; the chrome U is the footer. No Figma change.
+- **2026-11-19:** `/studio-3d/` is now a film to click through: the studio as a grey card maquette under baked light, in four light scenes, picked with large chips. The model turns on drag. New brand rule "3D scenes": a rendered scene may carry one colour field, and the page takes it while the scene shows. Everything else stays monochrome. No Figma change.
+- **2026-11-19:** The homepage hero photo leads into the 3D film. A click opens the photo's frame to the screen; the model stands behind it, seen from where the photo was taken, and the camera backs out to the film's first shot while the photo turns grey and fades. The photo is not retouched towards the model and the model is not coloured towards the photo: the hand-over is the photo becoming grey card. Scene chips sit bottom right under the model with an arrow at either end. No token or Figma change.
 - **2026-11-19:** The footer on every page (Kontakt included) is now the chrome U on a shorter stage, its chips the site's pages, Instagram, Jetzt anfragen, the e-mail and the street, above the two small lines. The header nav reads Studio, Information, Impressionen, Equipment, Kontakt. No Figma change.
 - **2026-11-19:** The homepage hero is now `StudioGallery`: the first studio photo edge to edge, filling the rest of the first screen, and the other five stepping down the page below it without captions. All six open the Lightbox. The "Rundgang" pill and the corner marks are gone. No Figma change.
 - **2026-11-09:** Website consistency pass. New CSS tokens for the type scale, spacing, `ground`, `ink-soft` and `caption`; all pages share the `.page` shell and the same gap under the header. The homepage fact labels are now the global chip. The active nav chip no longer widens. Footer, "Rundgang", "für" and the Impressionen closing statement are German. No Figma change.

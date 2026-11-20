@@ -1,5 +1,6 @@
 import LightboxThumb from "@/components/impressionen/LightboxThumb";
 import Facts from "@/components/home/studio/Facts";
+import StudioFilm from "@/components/studio-3d/StudioFilm";
 import type {
   ContentImage,
   ContentLink,
@@ -80,11 +81,13 @@ export default function StudioSheet({
     <div className="studio-sheet" data-lightbox-gallery data-name="Studio Uto">
       {hero && (
         <div className="studio-sheet__hero">
+          {/* The hero leads into the 3D model. It stays the Lightbox's first
+              slide through a thumb that is not shown. */}
+          <StudioFilm hero={hero} />
           <LightboxThumb
             image={hero}
             label={`Bild 1 von ${total} öffnen`}
-            sizes="(max-width: 720px) 190vw, 100vw"
-            loading="eager"
+            hidden
           />
         </div>
       )}
